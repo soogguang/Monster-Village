@@ -37,10 +37,12 @@
       #panel .buttons { display: flex; flex-wrap: wrap; gap: 6px; }
       #panel .buttons button { padding: 4px 8px; font-size: 13px; }
       #panel .error { color: #c0392b; margin: 0; font-size: 13px; }
-      #panel .dex { margin: 0; }
+      #panel .dex { margin: 0; white-space: pre-line; }
+      #panel .habits li { padding: 8px 10px; }
+      #panel .habits li.done { border-color: #86c05e; background: #f1fae9; }
       #panel .toast {
         position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); margin: 0;
-        padding: 10px 16px; background: var(--ink); color: #fff; border-radius: 8px; max-width: 80vw;
+        padding: 10px 16px; background: var(--ink); color: #fff; border-radius: 8px; max-width: 80vw; white-space: pre-line; z-index: 10;
       }
       #hud {
         position: fixed; top: 12px; left: 12px; padding: 6px 10px;

@@ -33,8 +33,19 @@ export class VillageScene extends Phaser.Scene {
   private pixelScale = pickPixelScale(window.innerHeight);
   private myYard = YARDS.find((y) => y.owner === 'me')!;
 
-  constructor(private store: GameStore) {
+  constructor(
+    private store: GameStore,
+    private characterDir: string,
+  ) {
     super('village');
+  }
+
+  /** catalog.json에 적힌 캐릭터 그림을 불러와요. 없는 파일은 건너뛰고 임시 그림을 써요. */
+  preload(): void {
+    this.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR, (file: Phaser.Loader.File) =>
+      console.warn(`[캐릭터 그림] ${file.url} 을(를) 불러오지 못했어요. 임시 그림으로 보여줄게요.`),
+    );
+    for (const c of this.store.getCatalog()) this.load.image(characterKey(c.id), `${this.characterDir}${c.image}`);
   }
 
   create(): void {
@@ -125,10 +136,11 @@ export class VillageScene extends Phaser.Scene {
     return view;
   }
 
-  private addResident(yard: Yard, r: Pick<Resident, 'kind' | 'rare'>, index: number, bornNow: boolean): Phaser.GameObjects.Image {
+  private addResident(yard: Yard, r: Pick<Resident, 'kind' | 'rare' | 'speciesId'>, index: number, bornNow: boolean): Phaser.GameObjects.Image {
     const rng = new Phaser.Math.RandomDataGenerator([`${yard.name}-${index}`]);
     const home = this.yardSpot(yard, rng.realInRange(0.15, 0.85), rng.realInRange(0.55, 0.9));
-    const key = r.kind === 'sprout' && r.rare ? 'resident-sprout-rare' : `resident-${r.kind}`;
+    const placeholder = r.kind === 'sprout' && r.rare ? 'resident-sprout-rare' : `resident-${r.kind}`;
+    const key = r.speciesId && this.textures.exists(characterKey(r.speciesId)) ? characterKey(r.speciesId) : placeholder;
     const sprite = this.add.image(home.x, home.y, key).setOrigin(0.5, 1).setDepth(home.y);
     if (bornNow && this.time.now > 2000) {
       sprite.setScale(0);
@@ -207,8 +219,11 @@ export class VillageScene extends Phaser.Scene {
 
   /** 친구 마당 확인용 임시 주민들 (동네 기능이 연결되면 실제 친구 데이터로 바꿔요) */
   private addFriendDemoResidents(): void {
-    const demo: Pick<Resident, 'kind' | 'rare'>[] = [
-      { kind: 'sprout', rare: false }, { kind: 'sprout', rare: true }, { kind: 'sleepy', rare: false }, { kind: 'trouble', rare: false },
+    const demo: Pick<Resident, 'kind' | 'rare' | 'speciesId'>[] = [
+      { kind: 'sprout', rare: false, speciesId: null },
+      { kind: 'sprout', rare: true, speciesId: null },
+      { kind: 'sleepy', rare: false, speciesId: null },
+      { kind: 'trouble', rare: false, speciesId: null },
     ];
     for (const yard of YARDS.filter((y) => y.owner === 'friend')) demo.forEach((r, i) => this.addResident(yard, r, i, false));
   }
@@ -241,6 +256,10 @@ export class VillageScene extends Phaser.Scene {
     label.once(Phaser.GameObjects.Events.DESTROY, () => (this.labels = this.labels.filter((l) => l !== label)));
     return label;
   }
+}
+
+function characterKey(id: string): string {
+  return `char-${id}`;
 }
 
 function shorten(title: string, max = 10): string {

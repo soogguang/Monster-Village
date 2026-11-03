@@ -25,3 +25,17 @@ export const RULES = {
   /** 그냥 일찍 끝냈을 때 희귀 새싹이 나올 확률 */
   rareChanceEarly: 0.05,
 } as const;
+
+/** 집중 습관 기준값 (분) */
+export const HABITS = {
+  /** 푹 몰입하기: 끊지 않고 이만큼 집중 */
+  deepFocusMinutes: 50,
+  /** 쉬고 돌아오기: 휴식 앞뒤로 각각 이만큼 집중 */
+  restAndReturnFocusMinutes: 25,
+  /** 쉬고 돌아오기: 휴식은 최소 이만큼 */
+  restMinMinutes: 1,
+  /** 쉬고 돌아오기: 휴식은 바로 앞 집중 시간 ÷ 이 값 이하 (5 → 집중:휴식 = 5:1) */
+  focusToRestRatio: 5,
+  /** 차곡차곡 해내기: 하루에 서로 다른 할 일을 이만큼 완료 */
+  manyDoneCount: 3,
+} as const;

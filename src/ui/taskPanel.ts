@@ -1,13 +1,22 @@
 // 할 일 패널 (화면 오른쪽)
 // 글씨와 입력창은 게임 화면 위에 일반 웹 요소로 올려서 또렷하게 보이게 해요.
 
-import { RULES } from '../config';
+import { HABITS, RULES } from '../config';
+import { HABIT_IDS, type HabitId } from '../rules/habits';
 import { doughStage, progressRatio, type DoughStage, type ResidentKind } from '../rules/task';
-import type { GameState, GameStore, Resident } from '../store';
+import type { CompleteResult, GameState, GameStore } from '../store';
 
 const DAY = 24 * 60 * 60 * 1000;
 const STAGE_TEXT: Record<DoughStage, string> = { soft: '🫧 말랑', grumpy: '😤 심술', monster: '👾 몬스터' };
 const RESIDENT_TEXT: Record<ResidentKind, string> = { sprout: '🌱 새싹', sleepy: '😴 꾸벅이', trouble: '😈 말썽' };
+const HABIT_TEXT: Record<HabitId, { name: string; how: string }> = {
+  'many-done': { name: '📦 차곡차곡 해내기', how: `하루에 서로 다른 할 일 ${HABITS.manyDoneCount}개 완료` },
+  'rest-and-return': {
+    name: '☕ 쉬고 돌아오기',
+    how: `${HABITS.restAndReturnFocusMinutes}분 집중 → 짧은 휴식(앞 집중의 1/${HABITS.focusToRestRatio} 이하) → 다시 ${HABITS.restAndReturnFocusMinutes}분`,
+  },
+  'deep-focus': { name: '🎯 푹 몰입하기', how: `끊지 않고 ${HABITS.deepFocusMinutes}분 집중` },
+};
 
 export function mountTaskPanel(root: HTMLElement, store: GameStore): void {
   root.innerHTML = `
@@ -22,6 +31,10 @@ export function mountTaskPanel(root: HTMLElement, store: GameStore): void {
     <section>
       <h2>내 반죽 <span class="count"></span></h2>
       <ul class="tasks"></ul>
+    </section>
+    <section>
+      <h2>집중 습관</h2>
+      <ul class="habits"></ul>
     </section>
     <section>
       <h2>도감</h2>
@@ -59,25 +72,27 @@ export function mountTaskPanel(root: HTMLElement, store: GameStore): void {
     const task = store.get().tasks.find((t) => t.id === id);
     if (!task) return;
     switch (button.dataset.action) {
-      case 'focus':
-        store.get().focus?.taskId === id ? store.stopFocus() : store.startFocus(id);
+      case 'focus': {
+        const unlocks = store.get().focus?.taskId === id ? store.stopFocus() : store.startFocus(id);
+        if (unlocks.length) showToast(toast, unlockMessage(unlocks));
         break;
+      }
       case 'extend':
         if (confirm('마감을 하루 미룰까요? 미룬 횟수는 동네 친구들에게 보여요.')) store.extendTask(id, task.dueAt + DAY);
         break;
       case 'done':
-        showToast(toast, store.completeTask(id));
+        showToast(toast, birthMessage(store.completeTask(id)));
         break;
     }
   });
 
-  const render = (state: GameState) => renderPanel(root, list, state);
+  const render = (state: GameState) => renderPanel(root, list, state, store);
   render(store.get());
   store.subscribe(render);
   setInterval(() => render(store.get()), 1000);
 }
 
-function renderPanel(root: HTMLElement, list: HTMLUListElement, state: GameState): void {
+function renderPanel(root: HTMLElement, list: HTMLUListElement, state: GameState, store: GameStore): void {
   const now = Date.now();
   const active = state.tasks.filter((t) => t.completedAt === undefined);
   root.querySelector('.count')!.textContent = `${active.length}`;
@@ -108,18 +123,37 @@ function renderPanel(root: HTMLElement, list: HTMLUListElement, state: GameState
         .join('')
     : '<li class="empty">아직 반죽이 없어요. 할 일을 등록해 보세요.</li>';
 
+  root.querySelector('.habits')!.innerHTML = HABIT_IDS.map((id) => {
+    const done = state.unlocks[id] !== undefined;
+    return `<li class="${done ? 'done' : ''}"><div class="row"><strong>${HABIT_TEXT[id].name}</strong><span>${done ? '✅ 해금' : '🔒'}</span></div><div class="meta">${HABIT_TEXT[id].how}</div></li>`;
+  }).join('');
+
   const count = (kind: ResidentKind, rare = false) =>
     state.residents.filter((r) => r.kind === kind && (kind !== 'sprout' || r.rare === rare)).length;
+  const catalog = store.getCatalog();
+  const met = new Set(state.residents.map((r) => r.speciesId).filter(Boolean));
+  const metLine = catalog.length ? `\n만난 주민 ${met.size} / ${catalog.length}종` : '';
   root.querySelector('.dex')!.textContent =
-    `🌱 새싹 ${count('sprout')} · ✨ 희귀 새싹 ${count('sprout', true)} · 😴 꾸벅이 ${count('sleepy')} · 😈 말썽 ${count('trouble')}`;
+    `🌱 새싹 ${count('sprout')} · ✨ 희귀 새싹 ${count('sprout', true)} · 😴 꾸벅이 ${count('sleepy')} · 😈 말썽 ${count('trouble')}${metLine}`;
 }
 
-function showToast(toast: HTMLElement, r: Resident): void {
-  const name = r.kind === 'sprout' && r.rare ? '✨ 희귀 새싹' : RESIDENT_TEXT[r.kind];
-  toast.textContent = `"${r.fromTask}"을(를) 끝내서 ${name} 주민이 태어났어요!`;
-  if (r.kind === 'sleepy') toast.textContent += ` (집중 ${RULES.focusMinutesForSleepy}분 이상 덕분에 개과천선)`;
+function birthMessage({ resident: r, species, newUnlocks }: CompleteResult): string {
+  const kind = r.kind === 'sprout' && r.rare ? '✨ 희귀 새싹' : RESIDENT_TEXT[r.kind];
+  let text = `"${r.fromTask}"을(를) 끝내서 ${kind} 주민${species ? ` "${species.name}"` : ''}이(가) 태어났어요!`;
+  if (r.kind === 'sleepy') text += ` (집중 ${RULES.focusMinutesForSleepy}분 이상 덕분에 개과천선)`;
+  if (newUnlocks.length) text += `\n${unlockMessage(newUnlocks)}`;
+  return text;
+}
+
+function unlockMessage(unlocks: HabitId[]): string {
+  return `🔓 ${unlocks.map((id) => HABIT_TEXT[id].name).join(', ')} 달성! 새로운 주민을 만날 수 있어요.`;
+}
+
+function showToast(toast: HTMLElement, text: string): void {
+  toast.textContent = text;
   toast.hidden = false;
-  window.setTimeout(() => (toast.hidden = true), 4000);
+  window.clearTimeout(Number(toast.dataset.timer));
+  toast.dataset.timer = String(window.setTimeout(() => (toast.hidden = true), 5000));
 }
 
 function resetDates(form: HTMLFormElement): void {
