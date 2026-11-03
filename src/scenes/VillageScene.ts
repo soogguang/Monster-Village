@@ -86,7 +86,11 @@ export class VillageScene extends Phaser.Scene {
 
   update(): void {
     const body = this.player.body as Phaser.Physics.Arcade.Body;
-    const typing = document.activeElement instanceof HTMLInputElement;
+    // 입력창에 글자를 치거나 창이 열려 있으면 캐릭터가 움직이지 않아요.
+    const typing =
+      document.activeElement instanceof HTMLInputElement ||
+      document.activeElement instanceof HTMLSelectElement ||
+      document.body.dataset.modal === 'open';
     const k = this.keys;
     const dx = typing ? 0 : Number(k.right.isDown || k.d.isDown) - Number(k.left.isDown || k.a.isDown);
     const dy = typing ? 0 : Number(k.down.isDown || k.s.isDown) - Number(k.up.isDown || k.w.isDown);

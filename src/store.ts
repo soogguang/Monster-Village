@@ -11,6 +11,8 @@ export interface Resident {
   rare: boolean;
   /** catalog.json의 캐릭터 id. 아직 그림이 없으면 null (임시 그림으로 보여줘요) */
   speciesId: string | null;
+  /** 사용자가 붙인 별명 (없으면 캐릭터 이름으로 보여요) */
+  nickname?: string;
   /** 이 주민을 태어나게 한 할 일 제목 */
   fromTask: string;
   bornAt: number;
@@ -92,6 +94,36 @@ export class GameStore {
 
   extendTask(taskId: string, newDueAt: number): void {
     this.set({ ...this.state, tasks: this.state.tasks.map((t) => (t.id === taskId ? extendDue(t, newDueAt) : t)) });
+  }
+
+  /**
+   * 할 일의 제목과 날짜를 고쳐요.
+   * 마감일을 뒤로 미루면 "마감 연장"으로 기록돼요. (꼼수 방지 규칙) 앞당기는 건 기록하지 않아요.
+   */
+  updateTask(taskId: string, changes: { title: string; startAt: number; dueAt: number }): void {
+    const task = this.state.tasks.find((t) => t.id === taskId);
+    if (!task) throw new Error('없는 할 일이에요.');
+    if (task.completedAt !== undefined) throw new Error('끝낸 할 일은 고칠 수 없어요.');
+    const title = changes.title.trim();
+    if (!title) throw new Error('제목을 적어 주세요.');
+    if (!(changes.dueAt > changes.startAt)) throw new Error('마감일은 시작일보다 뒤여야 해요.');
+    const extended = changes.dueAt > task.dueAt;
+    const next: Task = {
+      ...task,
+      title,
+      startAt: changes.startAt,
+      dueAt: changes.dueAt,
+      dueExtensions: task.dueExtensions + (extended ? 1 : 0),
+    };
+    this.set({ ...this.state, tasks: this.state.tasks.map((t) => (t.id === taskId ? next : t)) });
+  }
+
+  renameResident(residentId: string, nickname: string): void {
+    const name = nickname.trim().slice(0, 12);
+    this.set({
+      ...this.state,
+      residents: this.state.residents.map((r) => (r.id === residentId ? { ...r, nickname: name || undefined } : r)),
+    });
   }
 
   startFocus(taskId: string): HabitId[] {

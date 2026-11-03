@@ -117,4 +117,27 @@ describe('GameStore', () => {
     expect(store.get().sessions).toEqual([]);
     expect(store.get().unlocks).toEqual({});
   });
+
+  it('할 일을 고칠 때 마감을 뒤로 미루면 연장으로 기록돼요', () => {
+    const { store, start } = setup();
+    const t = store.addTask('보고서', start, start + DAY);
+    store.updateTask(t.id, { title: '보고서 초안', startAt: start, dueAt: start + 2 * DAY });
+    expect(store.get().tasks[0]).toMatchObject({ title: '보고서 초안', dueExtensions: 1 });
+    store.updateTask(t.id, { title: '보고서 초안', startAt: start, dueAt: start + DAY });
+    expect(store.get().tasks[0].dueExtensions).toBe(1);
+  });
+
+  it('할 일을 고칠 때 마감이 시작보다 앞이면 거부해요', () => {
+    const { store, start } = setup();
+    const t = store.addTask('보고서', start, start + DAY);
+    expect(() => store.updateTask(t.id, { title: '보고서', startAt: start + DAY, dueAt: start })).toThrow();
+  });
+
+  it('주민에게 별명을 붙일 수 있어요', () => {
+    const { store, start } = setup();
+    const t = store.addTask('보고서', start, start + DAY);
+    const { resident } = store.completeTask(t.id);
+    store.renameResident(resident.id, '  콩이 ');
+    expect(store.get().residents[0].nickname).toBe('콩이');
+  });
 });
