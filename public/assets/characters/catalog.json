@@ -1,6 +1,17 @@
 {
   "residents": [
     {
+      "id": "sprout-mandu",
+      "name": "만두",
+      "kind": "sprout",
+      "rare": false,
+      "unlock": null,
+      "image": "sprout-mandu.png",
+      "sleepImage": "sprout-mandu-sleep.png",
+      "personality": "음식을 먹으면 몸통 양옆의 둥근 볼주머니에 차곡차곡 저장해요.",
+      "motif": "만두"
+    },
+    {
       "id": "sprout-puppy",
       "name": "강아지",
       "kind": "sprout",
