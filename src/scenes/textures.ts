@@ -5,14 +5,16 @@ import Phaser from 'phaser';
 import { TILE_SIZE } from '../config';
 
 const OUTLINE = 0x3a2b2b;
-const T = TILE_SIZE;
+/** 임시 그림은 16픽셀 기준으로 그려 두고, 실제 타일 크기에 맞춰 K배로 키워요. */
+const T = 16;
+const K = TILE_SIZE / T;
 
 export function makePlaceholderTextures(scene: Phaser.Scene): void {
   const g = scene.make.graphics({}, false);
   const rng = new Phaser.Math.RandomDataGenerator(['tiles']);
-  const px = (x: number, y: number, color: number, w = 1, h = 1) => g.fillStyle(color).fillRect(x, y, w, h);
+  const px = (x: number, y: number, color: number, w = 1, h = 1) => g.fillStyle(color).fillRect(x * K, y * K, w * K, h * K);
   const save = (key: string, w: number, h: number) => {
-    g.generateTexture(key, w, h);
+    g.generateTexture(key, w * K, h * K);
     g.clear();
   };
 

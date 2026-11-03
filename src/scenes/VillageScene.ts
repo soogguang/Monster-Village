@@ -10,7 +10,8 @@ import { makePlaceholderTextures } from './textures';
 
 const MAP_W = MAP_COLS * TILE_SIZE;
 const MAP_H = MAP_ROWS * TILE_SIZE;
-const PLAYER_SPEED = 90;
+/** 초당 이동 거리 (타일 5.6칸) */
+const PLAYER_SPEED = TILE_SIZE * 5.6;
 /** 이름표는 픽셀 배율과 상관없이 이 크기(화면 픽셀)로 또렷하게 그려요. */
 const LABEL_FONT_PX = 13;
 
@@ -61,7 +62,8 @@ export class VillageScene extends Phaser.Scene {
     this.player = this.add.image(start.x, start.y, 'player').setOrigin(0.5, 1);
     this.physics.add.existing(this.player);
     const body = this.player.body as Phaser.Physics.Arcade.Body;
-    body.setCollideWorldBounds(true).setSize(12, 6).setOffset(2, 18);
+    // 발밑만 부딪히게 해요. (그림 크기는 타일 기준 비율로 계산)
+    body.setCollideWorldBounds(true).setSize(TILE_SIZE * 0.75, TILE_SIZE * 0.375).setOffset(TILE_SIZE * 0.125, TILE_SIZE * 1.125);
     this.physics.world.setBounds(0, 0, MAP_W, MAP_H);
     this.physics.add.collider(this.player, this.fenceGroup);
 
@@ -129,8 +131,8 @@ export class VillageScene extends Phaser.Scene {
     this.tweens.add({ targets: sprite, scaleY: 0.88, scaleX: 1.08, duration: 650, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
     const view = {
       sprite,
-      label: this.makeLabel(x, y + 2, task.title, '#2b2433').setOrigin(0.5, 0).setAlign('center'),
-      zzz: this.makeLabel(x + 8, y - 18, 'z z', '#ffffff').setVisible(false),
+      label: this.makeLabel(x, y + TILE_SIZE * 0.125, task.title, '#2b2433').setOrigin(0.5, 0).setAlign('center'),
+      zzz: this.makeLabel(x + TILE_SIZE * 0.5, y - TILE_SIZE * 1.125, 'z z', '#ffffff').setVisible(false),
     };
     this.doughViews.set(task.id, view);
     return view;
@@ -158,7 +160,8 @@ export class VillageScene extends Phaser.Scene {
       targets: sprite,
       x: next.x,
       y: next.y,
-      duration: Phaser.Math.Distance.Between(sprite.x, sprite.y, next.x, next.y) * 60,
+      // 주민은 초당 타일 1칸 정도로 느긋하게 걸어요.
+      duration: (Phaser.Math.Distance.Between(sprite.x, sprite.y, next.x, next.y) / TILE_SIZE) * 960,
       delay: rng.between(800, 3000),
       onUpdate: () => sprite.setDepth(sprite.y),
       onComplete: () => this.wander(sprite, yard, rng),
@@ -203,7 +206,7 @@ export class VillageScene extends Phaser.Scene {
       const x = (spot.col + 0.5) * TILE_SIZE;
       const y = (spot.row + 1) * TILE_SIZE;
       const obj = this.add.image(x, y, key).setOrigin(0.5, 1).setDepth(y);
-      this.makeLabel(x, y + 2, label, '#2b2433').setOrigin(0.5, 0);
+      this.makeLabel(x, y + TILE_SIZE * 0.125, label, '#2b2433').setOrigin(0.5, 0);
       return obj;
     };
     const fire = place(PLAZA_SPOTS.campfire, 'campfire', '모닥불');
@@ -214,7 +217,7 @@ export class VillageScene extends Phaser.Scene {
 
   private addYardSign(yard: Yard): void {
     const { x, y } = this.yardSpot(yard, 0.5, 0);
-    this.makeLabel(x, y - 20, yard.name, '#ffffff').setOrigin(0.5, 1).setBackgroundColor('#2b2433cc').setPadding(6, 2, 6, 2);
+    this.makeLabel(x, y - TILE_SIZE * 1.25, yard.name, '#ffffff').setOrigin(0.5, 1).setBackgroundColor('#2b2433cc').setPadding(6, 2, 6, 2);
   }
 
   /** 친구 마당 확인용 임시 주민들 (동네 기능이 연결되면 실제 친구 데이터로 바꿔요) */
