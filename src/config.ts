@@ -4,8 +4,14 @@
 export const TILE_SIZE = 16;
 /** 캐릭터 그림 한 칸의 픽셀 크기 */
 export const CHARACTER_SIZE = 32;
-/** 픽셀 아트를 화면에 키워서 보여주는 배율 */
-export const PIXEL_SCALE = 3;
+/**
+ * 픽셀 1개를 화면에서 몇 배로 보여줄지 정해요.
+ * 창 크기와 상관없이 이 배율로 고정해서, 픽셀이 너무 커 보이지 않게 해요.
+ * 창이 크면 더 넓은 마을이 보이고, 카메라가 내 캐릭터를 따라다녀요.
+ */
+export function pickPixelScale(windowHeight: number): number {
+  return windowHeight >= 1000 ? 3 : 2;
+}
 
 export const RULES = {
   /** 진행 비율이 이 값 이하면 "아주 일찍" 끝낸 것으로 봐요 (희귀 확률 높음) */

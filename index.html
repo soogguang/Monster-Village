@@ -7,11 +7,16 @@
     <style>
       html, body { margin: 0; height: 100%; background: #1d1b2a; }
       #game { width: 100%; height: 100%; }
-      canvas { image-rendering: pixelated; }
+      canvas { image-rendering: pixelated; display: block; }
+      #hud {
+        position: fixed; top: 12px; left: 12px; padding: 6px 10px;
+        font: 14px/1.4 sans-serif; color: #fff; background: rgba(29, 27, 42, 0.7); border-radius: 6px;
+      }
     </style>
   </head>
   <body>
     <div id="game"></div>
+    <div id="hud"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
