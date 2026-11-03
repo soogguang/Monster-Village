@@ -1,0 +1,15 @@
+{
+  "residents": [
+    {
+      "id": "sprout-puppy",
+      "name": "강아지",
+      "kind": "sprout",
+      "rare": false,
+      "unlock": null,
+      "image": "sprout-puppy.png",
+      "sleepImage": "sprout-puppy-sleep.png",
+      "personality": "땅파기를 좋아해요.",
+      "motif": "강아지"
+    }
+  ]
+}
