@@ -140,4 +140,57 @@ describe('GameStore', () => {
     store.renameResident(resident.id, '  콩이 ');
     expect(store.get().residents[0].nickname).toBe('콩이');
   });
+
+  it('새 할 일은 기본으로 달력에 마감일만 표시돼요', () => {
+    const { store, start } = setup();
+    expect(store.addTask('a', start, start + DAY).calendarStyle).toBe('due');
+    expect(store.addTask('b', start, start + DAY, 'range').calendarStyle).toBe('range');
+  });
+
+  it('오늘 할 수 있는 일 중에서 골라서 오늘 할 일로 가져와요', () => {
+    const { store, start } = setup();
+    const inRange = store.addTask('기간 중', start - DAY, start + 3 * DAY);
+    const overdue = store.addTask('마감 지남', start - 3 * DAY, start - DAY);
+    store.addTask('아직 시작 전', start + 3 * DAY, start + 5 * DAY);
+    expect(store.todayCandidates().map((t) => t.title)).toEqual(['마감 지남', '기간 중']);
+    store.addToToday([inRange.id]);
+    expect(store.todayPlan().map((t) => t.id)).toEqual([inRange.id]);
+    expect(store.todayCandidates().map((t) => t.id)).toEqual([overdue.id]);
+    store.removeFromToday(inRange.id);
+    expect(store.todayPlan()).toEqual([]);
+  });
+
+  it('오늘만 할 일은 만들자마자 오늘 할 일에 들어가요', () => {
+    const { store } = setup();
+    const t = store.addTodayOnlyTask('우체국 가기');
+    expect(store.todayPlan().map((x) => x.id)).toEqual([t.id]);
+  });
+
+  it('하루가 지나면 오늘 할 일은 새로 시작해요', () => {
+    const { store, start, advance } = setup();
+    const t = store.addTask('a', start, start + 5 * DAY);
+    store.addToToday([t.id]);
+    advance(DAY);
+    expect(store.todayPlan()).toEqual([]);
+    expect(store.todayCandidates().map((x) => x.id)).toEqual([t.id]);
+  });
+
+  it('연결이 5분 넘게 끊기면 집중을 마지막 신호 시각에 끝내요', () => {
+    const { store, start, advance } = setup();
+    const t = store.addTask('a', start, start + DAY);
+    store.startFocus(t.id);
+    // 창이 열려 있는 동안은 신호가 계속 와요 (탭이 뒤로 가 있으면 1분 간격까지 느려질 수 있어요)
+    for (let i = 0; i < 20; i++) {
+      advance(MINUTE);
+      expect(store.heartbeat()).toBeNull();
+    }
+    advance(4 * MINUTE); // 5분 이내의 짧은 끊김은 괜찮아요
+    expect(store.heartbeat()).toBeNull();
+    const lastSeen = store.get().lastSeenAt!;
+    advance(30 * MINUTE); // 노트북을 덮었다가 30분 뒤에 열었어요
+    const ended = store.heartbeat();
+    expect(ended?.endedAt).toBe(lastSeen);
+    expect(store.get().focus).toBeNull();
+    expect(store.get().sessions.at(-1)).toMatchObject({ startedAt: start, endedAt: lastSeen });
+  });
 });

@@ -13,7 +13,11 @@ export interface Task {
   /** 마감일을 미룬 횟수 (동네 친구들에게 보여요) */
   dueExtensions: number;
   completedAt?: number;
+  /** 달력에 보이는 방식: 마감일에만 표시(due) 또는 시작~마감 기간 막대(range). 예전 데이터는 없을 수 있어요. */
+  calendarStyle?: CalendarStyle;
 }
+
+export type CalendarStyle = 'due' | 'range';
 
 /** 반죽 단계: 말랑 반죽 → 심술 반죽 → 찐 몬스터 */
 export type DoughStage = 'soft' | 'grumpy' | 'monster';
@@ -26,10 +30,10 @@ export interface ResidentResult {
 }
 
 export function createTask(
-  input: Pick<Task, 'id' | 'title' | 'startAt' | 'dueAt'>,
+  input: Pick<Task, 'id' | 'title' | 'startAt' | 'dueAt'> & { calendarStyle?: CalendarStyle },
 ): Task {
   assertValidPeriod(input.startAt, input.dueAt);
-  return { ...input, focusMinutes: 0, dueExtensions: 0 };
+  return { calendarStyle: 'due', ...input, focusMinutes: 0, dueExtensions: 0 };
 }
 
 /**

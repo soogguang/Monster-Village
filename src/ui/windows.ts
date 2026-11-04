@@ -2,7 +2,7 @@
 // 창 안의 목록은 저장소가 바뀔 때마다 다시 그리고, 입력 중인 폼은 건드리지 않아요.
 
 import { HABIT_IDS } from '../rules/habits';
-import { doughStage, progressRatio, type Task } from '../rules/task';
+import { doughStage, progressRatio, type CalendarStyle, type Task } from '../rules/task';
 import type { GameState, GameStore, Resident } from '../store';
 import {
   DAY, HABIT_TEXT, RESIDENT_TEXT, STAGE_TEXT, WEEKDAYS,
@@ -33,47 +33,84 @@ export interface GameWindow {
 export const tasksWindow: GameWindow = {
   id: 'tasks', title: '할 일 수첩', icon: '📋', key: 'T', label: '할 일',
   mount(body, ctx) {
-    let tab: 'today' | 'later' | 'done' = 'today';
+    let tab: 'today' | 'all' | 'done' = 'today';
     let editingId: string | null = null;
+    let picking = false;
 
     body.innerHTML = `
       <div class="tabs">
-        <button class="px-btn small" data-tab="today">오늘</button>
-        <button class="px-btn small" data-tab="later">앞으로</button>
+        <button class="px-btn small" data-tab="today">오늘 할 일</button>
+        <button class="px-btn small" data-tab="all">전체</button>
         <button class="px-btn small" data-tab="done">끝낸 일</button>
         <span style="flex:1"></span>
         <button class="px-btn small green" data-act="new">+ 새 할 일</button>
       </div>
-      <form class="new slot" hidden>${taskFormFields(Date.now(), Date.now() + DAY, '')}
+      <form class="new slot" hidden>${taskFormFields(Date.now(), Date.now() + DAY, '', 'due')}
         <div class="actions"><button class="px-btn small green">반죽 만들기</button><button type="button" class="px-btn small ghost" data-act="cancel-new">취소</button></div>
         <p class="form-error" hidden></p>
       </form>
+      <div class="today-tools" style="margin-top:8px"></div>
       <div class="list" style="margin-top:8px"></div>`;
     const newForm = body.querySelector<HTMLFormElement>('form.new')!;
+    const tools = body.querySelector<HTMLElement>('.today-tools')!;
     const list = body.querySelector<HTMLElement>('.list')!;
 
     const render = (state: GameState) => {
       body.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.tab === tab)));
-      const endOfToday = startOfDay(Date.now()) + DAY;
-      const active = state.tasks.filter((t) => t.completedAt === undefined).sort((a, b) => a.dueAt - b.dueAt);
+      tools.hidden = tab !== 'today';
+      if (tab === 'today') renderTodayTools();
+
       const shown =
-        tab === 'today' ? active.filter((t) => t.startAt < endOfToday)
-        : tab === 'later' ? active.filter((t) => t.startAt >= endOfToday)
+        tab === 'today' ? ctx.store.todayPlan()
+        : tab === 'all' ? state.tasks.filter((t) => t.completedAt === undefined).sort((a, b) => a.dueAt - b.dueAt)
         : state.tasks.filter((t) => t.completedAt !== undefined).sort((a, b) => b.completedAt! - a.completedAt!);
-      const emptyText = { today: '오늘 할 일이 없어요. 새 할 일을 등록해 보세요.', later: '예정된 할 일이 없어요.', done: '아직 끝낸 일이 없어요.' }[tab];
+      const emptyText = {
+        today: '아직 오늘 할 일을 고르지 않았어요.<br />[오늘 할 수 있는 일 가져오기]로 골라 보세요.',
+        all: '등록된 할 일이 없어요. 새 할 일을 등록해 보세요.',
+        done: '아직 끝낸 일이 없어요.',
+      }[tab];
       list.innerHTML = shown.length
-        ? shown.map((t) => (t.id === editingId ? editSlot(t) : taskSlot(t, state))).join('')
+        ? shown.map((t) => (t.id === editingId ? editSlot(t) : taskSlot(t, state, tab === 'today'))).join('')
         : `<div class="empty">${emptyText}</div>`;
+    };
+
+    // 오늘 탭 위쪽: 가져오기, 오늘만 할 일 추가
+    const renderTodayTools = () => {
+      if (!picking) {
+        tools.innerHTML = `<div class="row" style="display:flex;gap:6px">
+          <button class="px-btn small" data-act="pick">📥 오늘 할 수 있는 일 가져오기</button>
+          <form class="today-only" style="display:flex;gap:6px;flex:1">
+            <input class="px-input" name="title" placeholder="오늘만 할 일 (예: 우체국 가기)" maxlength="40" style="flex:1" />
+            <button class="px-btn small green">+ 추가</button>
+          </form></div>`;
+        return;
+      }
+      const candidates = ctx.store.todayCandidates();
+      const now = Date.now();
+      tools.innerHTML = `<form class="pick slot">
+        <strong>오늘 할 수 있는 일</strong> <span class="muted">(시작일이 지났고 아직 안 끝난 일)</span>
+        ${candidates.length
+          ? candidates.map((t) => `<label class="row" style="margin-top:6px;cursor:pointer">
+              <input type="checkbox" name="id" value="${t.id}" />
+              <span class="grow">${escapeHtml(t.title)}</span>
+              ${t.dueAt < now ? '<span class="badge warn">마감 지남</span>' : `<span class="badge">마감 ${formatDate(t.dueAt)}</span>`}
+            </label>`).join('')
+          : '<div class="empty" style="margin-top:6px">가져올 수 있는 일이 없어요.</div>'}
+        <div class="actions"><button class="px-btn small green" ${candidates.length ? '' : 'disabled'}>가져오기</button><button type="button" class="px-btn small ghost" data-act="cancel-pick">닫기</button></div>
+      </form>`;
     };
 
     body.addEventListener('click', (e) => {
       const el = (e.target as HTMLElement).closest<HTMLElement>('[data-tab],[data-act]');
       if (!el) return;
-      if (el.dataset.tab) { tab = el.dataset.tab as typeof tab; editingId = null; return render(ctx.store.get()); }
+      if (el.dataset.tab) { tab = el.dataset.tab as typeof tab; editingId = null; picking = false; return render(ctx.store.get()); }
       const id = el.dataset.id!;
       switch (el.dataset.act) {
         case 'new': newForm.hidden = !newForm.hidden; if (!newForm.hidden) newForm.querySelector<HTMLInputElement>('[name=title]')!.focus(); break;
         case 'cancel-new': newForm.hidden = true; break;
+        case 'pick': picking = true; render(ctx.store.get()); break;
+        case 'cancel-pick': picking = false; render(ctx.store.get()); break;
+        case 'unplan': ctx.store.removeFromToday(id); break;
         case 'focus': ctx.toggleFocus(id); break;
         case 'done': ctx.completeTask(id); break;
         case 'edit': editingId = id; render(ctx.store.get()); break;
@@ -84,16 +121,26 @@ export const tasksWindow: GameWindow = {
     body.addEventListener('submit', (e) => {
       e.preventDefault();
       const form = e.target as HTMLFormElement;
-      const values = readTaskForm(form);
-      const error = form.querySelector<HTMLElement>('.form-error')!;
+      const error = form.querySelector<HTMLElement>('.form-error');
       try {
-        if (form.classList.contains('new')) {
-          ctx.store.addTask(values.title, values.startAt, values.dueAt);
+        if (form.classList.contains('pick')) {
+          const ids = new FormData(form).getAll('id').map(String);
+          if (ids.length) ctx.store.addToToday(ids);
+          picking = false;
+          render(ctx.store.get());
+        } else if (form.classList.contains('today-only')) {
+          const title = String(new FormData(form).get('title') ?? '');
+          ctx.store.addTodayOnlyTask(title);
+          ctx.toast(`🫧 "${title.trim()}" 반죽이 마당에 생겼어요! (오늘만 할 일)`);
+        } else if (form.classList.contains('new')) {
+          const values = readTaskForm(form);
+          ctx.store.addTask(values.title, values.startAt, values.dueAt, values.calendarStyle);
           form.reset();
           resetTaskForm(form, Date.now(), Date.now() + DAY);
           form.hidden = true;
           ctx.toast(`🫧 "${values.title.trim()}" 반죽이 마당에 생겼어요!`);
         } else {
+          const values = readTaskForm(form);
           const before = ctx.store.get().tasks.find((t) => t.id === form.dataset.id)!;
           ctx.store.updateTask(form.dataset.id!, values);
           if (values.dueAt > before.dueAt) ctx.toast('📅 마감을 미뤘어요. 미룬 횟수는 동네 친구들에게 보여요.');
@@ -101,8 +148,8 @@ export const tasksWindow: GameWindow = {
           render(ctx.store.get());
         }
       } catch (err) {
-        error.textContent = (err as Error).message;
-        error.hidden = false;
+        if (error) { error.textContent = (err as Error).message; error.hidden = false; }
+        else ctx.toast((err as Error).message);
       }
     });
 
@@ -111,7 +158,7 @@ export const tasksWindow: GameWindow = {
   },
 };
 
-function taskSlot(t: Task, state: GameState): string {
+function taskSlot(t: Task, state: GameState, inToday: boolean): string {
   const now = Date.now();
   if (t.completedAt !== undefined) {
     return `<div class="slot"><div class="row"><span class="grow">✅ ${escapeHtml(t.title)}</span><span class="muted">${formatDate(t.completedAt)} 완료</span></div>
@@ -126,27 +173,33 @@ function taskSlot(t: Task, state: GameState): string {
         ${t.dueExtensions ? `<span class="badge warn">연장 ${t.dueExtensions}회 👀</span>` : ''}
         <span class="badge">${focusing ? '😪 졸림' : STAGE_TEXT[doughStage(t, now)]}</span>
       </div>
-      <div class="meta">${formatDate(t.startAt)} → ${formatDate(t.dueAt)} · 진행 ${Math.round(ratio * 100)}% · 집중 ${t.focusMinutes}분</div>
+      <div class="meta">${(t.calendarStyle ?? 'due') === 'range' ? '▬' : '📌'} ${formatDate(t.startAt)} → ${formatDate(t.dueAt)} · 진행 ${Math.round(ratio * 100)}% · 집중 ${t.focusMinutes}분</div>
       <div class="actions">
         <button class="px-btn small ${focusing ? 'red' : 'green'}" data-act="focus" data-id="${t.id}">${focusing ? '집중 끝내기' : '🔥 집중'}</button>
         <button class="px-btn small" data-act="done" data-id="${t.id}">완료!</button>
         <button class="px-btn small ghost" data-act="edit" data-id="${t.id}">수정</button>
+        ${inToday ? `<button class="px-btn small ghost" data-act="unplan" data-id="${t.id}">오늘에서 빼기</button>` : ''}
       </div>
     </div>`;
 }
 
 function editSlot(t: Task): string {
-  return `<form class="slot edit" data-id="${t.id}">${taskFormFields(t.startAt, t.dueAt, t.title)}
+  return `<form class="slot edit" data-id="${t.id}">${taskFormFields(t.startAt, t.dueAt, t.title, t.calendarStyle ?? 'due')}
     <div class="meta">마감을 뒤로 미루면 "마감 연장"으로 기록돼요.</div>
     <div class="actions"><button class="px-btn small green">저장</button><button type="button" class="px-btn small ghost" data-act="cancel-edit">취소</button></div>
     <p class="form-error" hidden></p></form>`;
 }
 
-function taskFormFields(startAt: number, dueAt: number, title: string): string {
+function taskFormFields(startAt: number, dueAt: number, title: string, style: CalendarStyle): string {
   return `<div class="form-grid">
     <input class="px-input full" name="title" placeholder="할 일 (예: 보고서 쓰기)" maxlength="40" required value="${escapeHtml(title)}" />
     <label>시작</label><input class="px-input" name="start" type="datetime-local" required value="${toLocalInput(startAt)}" />
     <label>마감</label><input class="px-input" name="due" type="datetime-local" required value="${toLocalInput(dueAt)}" />
+    <label>달력</label>
+    <div class="full-rest style-pick">
+      <label><input type="radio" name="style" value="due" ${style === 'due' ? 'checked' : ''} /> 📌 마감일만 표시</label>
+      <label><input type="radio" name="style" value="range" ${style === 'range' ? 'checked' : ''} /> ▬ 시작~마감 기간 표시</label>
+    </div>
   </div>`;
 }
 
@@ -156,6 +209,7 @@ function readTaskForm(form: HTMLFormElement) {
     title: String(data.get('title') ?? ''),
     startAt: fromLocalInput(String(data.get('start'))),
     dueAt: fromLocalInput(String(data.get('due'))),
+    calendarStyle: (data.get('style') === 'range' ? 'range' : 'due') as CalendarStyle,
   };
 }
 
@@ -172,6 +226,10 @@ export const calendarWindow: GameWindow = {
     const today = startOfDay(Date.now());
     let month = new Date(today); month.setDate(1);
     let selected = today;
+    /** 드래그 중인 범위 (날짜 시작 시각) */
+    let drag: { from: number; to: number } | null = null;
+    /** 오른쪽 추가 칸에 채워 둔 기본값 */
+    let draft: { startAt: number; dueAt: number; style: CalendarStyle } | null = null;
 
     body.innerHTML = `
       <div class="cal-layout">
@@ -182,21 +240,19 @@ export const calendarWindow: GameWindow = {
             <button class="px-btn small ghost" data-act="next">▶</button>
             <button class="px-btn small ghost" data-act="today">오늘</button>
           </div>
+          <p class="muted cal-hint">날짜를 누르면 그날이 마감인 할 일, 여러 날을 끌면 기간 할 일을 만들어요.</p>
           <div class="cal-grid"></div>
         </div>
         <div>
           <h3 class="day-title"></h3>
           <div class="day-list"></div>
-          <h3>이 날 할 일 추가</h3>
-          <form class="add slot">
-            <input class="px-input" name="title" placeholder="할 일" maxlength="40" required style="width:100%;box-sizing:border-box" />
-            <div class="meta">시작 <input class="px-input" name="start" type="time" value="09:00" /> 마감 <input class="px-input" name="due" type="time" value="18:00" /></div>
-            <div class="actions"><button class="px-btn small green">반죽 만들기</button></div>
-            <p class="form-error" hidden></p>
-          </form>
+          <div class="draft"></div>
         </div>
       </div>`;
     const grid = body.querySelector<HTMLElement>('.cal-grid')!;
+    const draftEl = body.querySelector<HTMLElement>('.draft')!;
+
+    const inDrag = (day: number) => drag !== null && day >= Math.min(drag.from, drag.to) && day <= Math.max(drag.from, drag.to);
 
     const render = (state: GameState) => {
       body.querySelector('.title')!.textContent = `${month.getFullYear()}년 ${month.getMonth() + 1}월`;
@@ -207,11 +263,15 @@ export const calendarWindow: GameWindow = {
         const day = new Date(first); day.setDate(first.getDate() + i);
         const dayStart = day.getTime();
         const items = tasksOnDay(state.tasks, dayStart);
-        const chips = items.slice(0, 2).map(({ task, isDue }) =>
-          `<div class="cal-chip ${task.completedAt !== undefined ? 'done' : isDue ? 'due' : ''}">${isDue ? '📌' : ''}${escapeHtml(task.title)}</div>`).join('');
-        const more = items.length > 2 ? `<div class="cal-more">+${items.length - 2}</div>` : '';
-        const cls = ['cal-day', day.getMonth() !== month.getMonth() ? 'other' : '', dayStart === today ? 'today' : '', dayStart === selected ? 'selected' : ''].join(' ');
-        html += `<button class="${cls}" data-day="${dayStart}"><span class="num">${day.getDate()}</span>${chips}${more}</button>`;
+        const chips = items.slice(0, 3).map(({ task, isDue, isStart }) => {
+          const range = (task.calendarStyle ?? 'due') === 'range';
+          const cls = ['cal-chip', range ? 'range' : '', range && !isStart ? 'cont' : '', isDue ? 'due' : '', task.completedAt !== undefined ? 'done' : ''].join(' ');
+          const label = range && !isStart && day.getDay() !== 0 ? (isDue ? '📌' : '&nbsp;') : `${isDue ? '📌' : ''}${escapeHtml(task.title)}`;
+          return `<div class="${cls}" title="${escapeHtml(task.title)}">${label}</div>`;
+        }).join('');
+        const more = items.length > 3 ? `<div class="cal-more">+${items.length - 3}</div>` : '';
+        const cls = ['cal-day', day.getMonth() !== month.getMonth() ? 'other' : '', dayStart === today ? 'today' : '', dayStart === selected ? 'selected' : '', inDrag(dayStart) ? 'dragging' : ''].join(' ');
+        html += `<div class="${cls}" data-day="${dayStart}"><span class="num">${day.getDate()}</span>${chips}${more}</div>`;
       }
       grid.innerHTML = html;
 
@@ -220,31 +280,70 @@ export const calendarWindow: GameWindow = {
       const items = tasksOnDay(state.tasks, selected);
       body.querySelector('.day-list')!.innerHTML = items.length
         ? items.map(({ task, isDue }) => `<div class="slot"><div class="row"><span class="grow">${task.completedAt !== undefined ? '✅ ' : ''}${escapeHtml(task.title)}</span>${isDue ? '<span class="badge warn">마감</span>' : ''}</div><div class="meta">${formatDate(task.startAt)} → ${formatDate(task.dueAt)}</div></div>`).join('')
-        : '<div class="empty">이 날은 할 일이 없어요.</div>';
+        : '<div class="empty">이 날 표시된 할 일이 없어요.</div>';
     };
 
+    const renderDraft = () => {
+      if (!draft) { draftEl.innerHTML = ''; return; }
+      draftEl.innerHTML = `<h3>${draft.style === 'range' ? '▬ 기간 할 일 만들기' : '📌 이 날이 마감인 할 일 만들기'}</h3>
+        <form class="add slot">${taskFormFields(draft.startAt, draft.dueAt, '', draft.style)}
+          <div class="actions"><button class="px-btn small green">반죽 만들기</button><button type="button" class="px-btn small ghost" data-act="cancel-draft">취소</button></div>
+          <p class="form-error" hidden></p></form>`;
+      draftEl.querySelector<HTMLInputElement>('[name=title]')!.focus();
+    };
+
+    // 날짜 하나 클릭 → 그날이 마감인 할 일 / 여러 날 끌기 → 기간 할 일
+    const dayAt = (e: PointerEvent) => {
+      const el = (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null)?.closest<HTMLElement>('[data-day]');
+      return el ? Number(el.dataset.day) : null;
+    };
+    grid.addEventListener('pointerdown', (e) => {
+      const day = dayAt(e);
+      if (day === null) return;
+      e.preventDefault();
+      drag = { from: day, to: day };
+      render(ctx.store.get());
+    });
+    grid.addEventListener('pointermove', (e) => {
+      if (!drag) return;
+      const day = dayAt(e);
+      if (day !== null && day !== drag.to) { drag.to = day; render(ctx.store.get()); }
+    });
+    const finishDrag = () => {
+      if (!drag) return;
+      const from = Math.min(drag.from, drag.to);
+      const to = Math.max(drag.from, drag.to);
+      drag = null;
+      selected = to;
+      const now = Date.now();
+      draft = from === to
+        ? { startAt: Math.min(now, from), dueAt: to + DAY - 60 * 1000, style: 'due' }
+        : { startAt: from + 9 * 60 * 60 * 1000, dueAt: to + DAY - 60 * 1000, style: 'range' };
+      render(ctx.store.get());
+      renderDraft();
+    };
+    window.addEventListener('pointerup', finishDrag);
+
     body.addEventListener('click', (e) => {
-      const el = (e.target as HTMLElement).closest<HTMLElement>('[data-act],[data-day]');
+      const el = (e.target as HTMLElement).closest<HTMLElement>('[data-act]');
       if (!el) return;
-      if (el.dataset.day) selected = Number(el.dataset.day);
-      else if (el.dataset.act === 'prev') month = new Date(month.getFullYear(), month.getMonth() - 1, 1);
+      if (el.dataset.act === 'prev') month = new Date(month.getFullYear(), month.getMonth() - 1, 1);
       else if (el.dataset.act === 'next') month = new Date(month.getFullYear(), month.getMonth() + 1, 1);
       else if (el.dataset.act === 'today') { month = new Date(today); month.setDate(1); selected = today; }
+      else if (el.dataset.act === 'cancel-draft') { draft = null; renderDraft(); return; }
       render(ctx.store.get());
     });
 
     body.addEventListener('submit', (e) => {
       e.preventDefault();
       const form = e.target as HTMLFormElement;
-      const data = new FormData(form);
-      const at = (hhmm: string) => { const [h, m] = hhmm.split(':').map(Number); return selected + (h * 60 + m) * 60 * 1000; };
       const error = form.querySelector<HTMLElement>('.form-error')!;
       try {
-        const title = String(data.get('title'));
-        ctx.store.addTask(title, at(String(data.get('start'))), at(String(data.get('due'))));
-        (form.elements.namedItem('title') as HTMLInputElement).value = '';
-        error.hidden = true;
-        ctx.toast(`🫧 "${title.trim()}" 반죽이 마당에 생겼어요!`);
+        const values = readTaskForm(form);
+        ctx.store.addTask(values.title, values.startAt, values.dueAt, values.calendarStyle);
+        draft = null;
+        renderDraft();
+        ctx.toast(`🫧 "${values.title.trim()}" 반죽이 마당에 생겼어요!`);
       } catch (err) {
         error.textContent = (err as Error).message;
         error.hidden = false;
@@ -252,17 +351,30 @@ export const calendarWindow: GameWindow = {
     });
 
     render(ctx.store.get());
-    return ctx.store.subscribe((s) => render(s));
+    const unsubscribe = ctx.store.subscribe((s) => render(s));
+    return () => { unsubscribe(); window.removeEventListener('pointerup', finishDrag); };
   },
 };
 
-/** 이 날짜에 걸쳐 있는 할 일 (시작~마감 사이) */
-function tasksOnDay(tasks: Task[], dayStart: number): { task: Task; isDue: boolean }[] {
+/**
+ * 이 날짜 칸에 보여줄 할 일
+ * - 📌 마감일만: 마감일 칸에만
+ * - ▬ 기간: 시작일부터 마감일(끝냈으면 끝낸 날)까지
+ */
+function tasksOnDay(tasks: Task[], dayStart: number): { task: Task; isDue: boolean; isStart: boolean }[] {
   const dayEnd = dayStart + DAY;
+  const inDay = (ms: number) => ms >= dayStart && ms < dayEnd;
   return tasks
-    .filter((t) => t.startAt < dayEnd && (t.completedAt ?? t.dueAt) >= dayStart)
-    .map((task) => ({ task, isDue: task.dueAt >= dayStart && task.dueAt < dayEnd }))
-    .sort((a, b) => Number(b.isDue) - Number(a.isDue) || a.task.dueAt - b.task.dueAt);
+    .filter((t) => (t.calendarStyle ?? 'due') === 'range'
+      ? t.startAt < dayEnd && Math.min(t.completedAt ?? t.dueAt, t.dueAt) >= dayStart
+      : inDay(t.dueAt))
+    .map((task) => ({ task, isDue: inDay(task.dueAt), isStart: inDay(task.startAt) }))
+    // 기간 막대가 날마다 같은 줄에 이어져 보이도록 기간 할 일을 항상 위에 둬요.
+    .sort((a, b) => rangeFirst(a.task) - rangeFirst(b.task) || a.task.startAt - b.task.startAt || a.task.dueAt - b.task.dueAt);
+}
+
+function rangeFirst(t: Task): number {
+  return (t.calendarStyle ?? 'due') === 'range' ? 0 : 1;
 }
 
 // ---------------------------------------------------------------- 도감

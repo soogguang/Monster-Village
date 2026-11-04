@@ -135,6 +135,20 @@ export function mountHud(store: GameStore, characterDir: string): void {
   renderStatus();
   store.subscribe(renderStatus);
   window.setInterval(renderStatus, 1000);
+
+  // ----- 연결 신호: 창이 열려 있는 동안 30초마다 남겨요 -----
+  // 창을 닫았거나 노트북이 잠들어서 5분 넘게 끊겼다면, 집중은 마지막 신호 시각에 끝난 것으로 기록돼요.
+  const beat = () => {
+    const ended = store.heartbeat();
+    if (!ended) return;
+    const { time } = formatClock(ended.endedAt);
+    let text = `🔌 연결이 끊겨 있어서 집중을 ${time}에 끝난 것으로 기록했어요.`;
+    if (ended.newUnlocks.length) text += `\n${unlockMessage(ended.newUnlocks)}`;
+    toast(text);
+  };
+  beat();
+  window.setInterval(beat, 30 * 1000);
+  document.addEventListener('visibilitychange', beat);
 }
 
 function birthMessage({ resident: r, species, newUnlocks }: CompleteResult): string {

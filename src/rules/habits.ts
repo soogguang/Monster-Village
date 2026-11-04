@@ -77,7 +77,8 @@ export function achievedHabits(
   return done;
 }
 
-function localDayKey(ms: number): string {
+/** 이 브라우저 시간대 기준의 날짜 이름 (예: 2026-11-4) */
+export function localDayKey(ms: number): string {
   const d = new Date(ms);
   return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
 }

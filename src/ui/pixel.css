@@ -155,10 +155,19 @@ button, input, select { font: inherit; color: inherit; }
 .cal-day.selected { border-color: var(--wood-dark); background: #fff0cc; }
 .cal-day .num { font-size: 11px; }
 .cal-chip { font-size: 10px; padding: 0 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: #d9ecc4; border-left: 3px solid var(--leaf); }
+.cal-chip.range { background: #cfe3f2; border-left-color: var(--sky); }
+.cal-chip.range.cont { border-left-color: transparent; margin-left: -6px; padding-left: 9px; }
+.cal-day.dragging { background: #ffe6a8; border-color: var(--gold); }
+.cal-grid { user-select: none; touch-action: none; }
+.cal-layout .form-grid { grid-template-columns: auto minmax(0, 1fr); }
+.cal-layout .style-pick { flex-direction: column; gap: 4px; }
+.cal-hint { margin: 0 0 6px; font-size: 11px; text-align: center; }
+.style-pick { grid-column: 2 / -1; display: flex; gap: 12px; flex-wrap: wrap; }
+.style-pick label { cursor: pointer; }
 .cal-chip.due { background: #f6d2c4; border-left-color: var(--berry); }
 .cal-chip.done { background: #e6e0d0; border-left-color: #a99c84; text-decoration: line-through; }
 .cal-more { font-size: 10px; color: var(--ink-soft); }
-.cal-layout { display: grid; grid-template-columns: minmax(0, 1fr) 230px; gap: 14px; }
+.cal-layout { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 14px; }
 @media (max-width: 720px) { .cal-layout { grid-template-columns: 1fr; } }
 
 /* 도감 */

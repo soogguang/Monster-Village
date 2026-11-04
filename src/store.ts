@@ -2,8 +2,8 @@
 // 지금은 브라우저(localStorage)에 임시로 저장해요. Supabase를 연결하면 Storage 구현만 바꿔요.
 
 import { pickResident, type CatalogEntry } from './rules/catalog';
-import { HABIT_IDS, achievedHabits, type FocusSession, type HabitId } from './rules/habits';
-import { addFocus, createTask, decideResident, extendDue, type ResidentKind, type Task } from './rules/task';
+import { HABIT_IDS, achievedHabits, localDayKey, type FocusSession, type HabitId } from './rules/habits';
+import { addFocus, createTask, decideResident, extendDue, type CalendarStyle, type ResidentKind, type Task } from './rules/task';
 
 export interface Resident {
   id: string;
@@ -31,6 +31,10 @@ export interface GameState {
   sessions: FocusSession[];
   /** 해금한 습관과 해금한 시각 */
   unlocks: Partial<Record<HabitId, number>>;
+  /** 날짜별로 "오늘 할 일"로 가져온 할 일 id (날짜 이름은 localDayKey) */
+  plans: Record<string, string[]>;
+  /** 게임 창이 마지막으로 연결돼 있던 시각 (집중 자동 종료에 써요) */
+  lastSeenAt: number | null;
 }
 
 export interface Storage {
@@ -46,6 +50,8 @@ export interface CompleteResult {
 }
 
 const MINUTE = 60 * 1000;
+/** 연결이 이만큼 끊기면 집중이 끝난 것으로 봐요 */
+export const DISCONNECT_LIMIT_MS = 5 * MINUTE;
 
 export class GameStore {
   private state: GameState;
@@ -65,6 +71,8 @@ export class GameStore {
       focus: saved?.focus ?? null,
       sessions: saved?.sessions ?? [],
       unlocks: saved?.unlocks ?? {},
+      plans: saved?.plans ?? {},
+      lastSeenAt: saved?.lastSeenAt ?? null,
     };
   }
 
@@ -86,8 +94,9 @@ export class GameStore {
     return () => this.listeners.delete(fn);
   }
 
-  addTask(title: string, startAt: number, dueAt: number): Task {
-    const task = createTask({ id: newId(), title: title.trim(), startAt, dueAt });
+  addTask(title: string, startAt: number, dueAt: number, calendarStyle: CalendarStyle = 'due'): Task {
+    if (!title.trim()) throw new Error('제목을 적어 주세요.');
+    const task = createTask({ id: newId(), title: title.trim(), startAt, dueAt, calendarStyle });
     this.set({ ...this.state, tasks: [...this.state.tasks, task] });
     return task;
   }
@@ -100,7 +109,7 @@ export class GameStore {
    * 할 일의 제목과 날짜를 고쳐요.
    * 마감일을 뒤로 미루면 "마감 연장"으로 기록돼요. (꼼수 방지 규칙) 앞당기는 건 기록하지 않아요.
    */
-  updateTask(taskId: string, changes: { title: string; startAt: number; dueAt: number }): void {
+  updateTask(taskId: string, changes: { title: string; startAt: number; dueAt: number; calendarStyle?: CalendarStyle }): void {
     const task = this.state.tasks.find((t) => t.id === taskId);
     if (!task) throw new Error('없는 할 일이에요.');
     if (task.completedAt !== undefined) throw new Error('끝낸 할 일은 고칠 수 없어요.');
@@ -113,9 +122,68 @@ export class GameStore {
       title,
       startAt: changes.startAt,
       dueAt: changes.dueAt,
+      calendarStyle: changes.calendarStyle ?? task.calendarStyle ?? 'due',
       dueExtensions: task.dueExtensions + (extended ? 1 : 0),
     };
     this.set({ ...this.state, tasks: this.state.tasks.map((t) => (t.id === taskId ? next : t)) });
+  }
+
+  // ---------- 오늘 할 일 (하루 계획) ----------
+
+  /** 오늘 하기로 가져온 할 일 (끝낸 것 포함, 가져온 순서대로) */
+  todayPlan(): Task[] {
+    const ids = this.state.plans[localDayKey(this.now())] ?? [];
+    return ids.map((id) => this.state.tasks.find((t) => t.id === id)).filter((t): t is Task => t !== undefined);
+  }
+
+  /** 오늘 가져올 수 있는 할 일: 시작일이 오늘까지 지났고(기간 중이거나 마감이 지남) 아직 안 끝났고, 아직 안 가져온 일 */
+  todayCandidates(): Task[] {
+    const now = this.now();
+    const endOfToday = startOfLocalDay(now) + 24 * 60 * MINUTE;
+    const planned = new Set(this.state.plans[localDayKey(now)] ?? []);
+    return this.state.tasks
+      .filter((t) => t.completedAt === undefined && t.startAt < endOfToday && !planned.has(t.id))
+      .sort((a, b) => a.dueAt - b.dueAt);
+  }
+
+  addToToday(taskIds: string[]): void {
+    const key = localDayKey(this.now());
+    const current = this.state.plans[key] ?? [];
+    const next = [...current, ...taskIds.filter((id) => !current.includes(id))];
+    this.set({ ...this.state, plans: { ...this.state.plans, [key]: next } });
+  }
+
+  removeFromToday(taskId: string): void {
+    const key = localDayKey(this.now());
+    this.set({ ...this.state, plans: { ...this.state.plans, [key]: (this.state.plans[key] ?? []).filter((id) => id !== taskId) } });
+  }
+
+  /** 오늘만 할 일: 지금부터 오늘 자정 전까지 하는 할 일을 만들고 바로 오늘 할 일에 넣어요. */
+  addTodayOnlyTask(title: string): Task {
+    const now = this.now();
+    const task = this.addTask(title, now, startOfLocalDay(now) + 24 * 60 * MINUTE - MINUTE, 'due');
+    this.addToToday([task.id]);
+    return task;
+  }
+
+  // ---------- 연결 신호 ----------
+
+  /**
+   * 게임 창이 열려 있는 동안 주기적으로 불러요.
+   * 마지막 신호에서 5분 넘게 끊겼다면(창을 닫았거나 노트북이 잠들었거나) 집중을 마지막 신호 시각에 끝내요.
+   * 이렇게 끝낸 경우 그 시각과 해금 결과를 돌려줘요.
+   */
+  heartbeat(): { endedAt: number; newUnlocks: HabitId[] } | null {
+    const now = this.now();
+    const last = this.state.lastSeenAt;
+    let ended: { endedAt: number; newUnlocks: HabitId[] } | null = null;
+    if (this.state.focus && last !== null && now - last > DISCONNECT_LIMIT_MS) {
+      ended = { endedAt: last, newUnlocks: this.stopFocus(last) };
+    }
+    // 신호 시각만 바뀐 건 화면을 다시 그릴 필요가 없어서 조용히 저장만 해요.
+    this.state = { ...this.state, lastSeenAt: now };
+    this.storage.save(this.state);
+    return ended;
   }
 
   renameResident(residentId: string, nickname: string): void {
@@ -132,11 +200,11 @@ export class GameStore {
     return newUnlocks;
   }
 
-  /** 집중을 끝내고 기록을 남겨요. 이번에 새로 해금된 습관을 돌려줘요. */
-  stopFocus(): HabitId[] {
+  /** 집중을 끝내고 기록을 남겨요. 이번에 새로 해금된 습관을 돌려줘요. endedAt을 주면 그 시각에 끝난 것으로 기록해요. */
+  stopFocus(endedAt: number = this.now()): HabitId[] {
     const focus = this.state.focus;
     if (!focus) return [];
-    const session: FocusSession = { taskId: focus.taskId, startedAt: focus.startedAt, endedAt: this.now() };
+    const session: FocusSession = { taskId: focus.taskId, startedAt: focus.startedAt, endedAt: Math.max(focus.startedAt, endedAt) };
     const minutes = Math.floor((session.endedAt - session.startedAt) / MINUTE);
     const tasks = this.state.tasks.map((t) => (t.id === focus.taskId ? addFocus(t, minutes) : t));
     const sessions = session.endedAt > session.startedAt ? [...this.state.sessions, session] : this.state.sessions;
@@ -215,6 +283,12 @@ export class LocalStorage implements Storage {
       // 저장이 막힌 브라우저(시크릿 모드 등)에서는 이번 접속 동안만 기억해요.
     }
   }
+}
+
+function startOfLocalDay(ms: number): number {
+  const d = new Date(ms);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
 }
 
 function newId(): string {
