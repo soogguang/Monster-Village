@@ -43,6 +43,11 @@ describe('doughStage', () => {
     expect(doughStage(baseTask(), START - HOUR)).toBe('soft');
   });
 
+  it('시작 후 1시간까지는 집중을 안 했어도 말랑 반죽이에요', () => {
+    expect(doughStage(baseTask(), START + 59 * 60 * 1000)).toBe('soft');
+    expect(doughStage(baseTask(), START + 61 * 60 * 1000)).toBe('grumpy');
+  });
+
   it('시작일이 지나도 집중을 안 했으면 심술 반죽이에요', () => {
     expect(doughStage(baseTask(), START + DAY)).toBe('grumpy');
   });

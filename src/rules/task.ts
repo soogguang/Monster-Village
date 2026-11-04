@@ -49,7 +49,9 @@ export function progressRatio(task: Pick<Task, 'startAt' | 'dueAt'>, at: number)
 /** 지금 이 순간 반죽이 어떤 단계인지 알려줘요. */
 export function doughStage(task: Task, now: number): DoughStage {
   if (now > task.dueAt) return 'monster';
-  if (now > task.startAt && task.focusMinutes === 0) return 'grumpy';
+  // 시작하자마자 심술이 나지 않도록, 시작 후 여유 시간(1시간)까지는 말랑으로 봐줘요.
+  const graceEnds = task.startAt + RULES.grumpyGraceMinutes * 60 * 1000;
+  if (now > graceEnds && task.focusMinutes === 0) return 'grumpy';
   return 'soft';
 }
 

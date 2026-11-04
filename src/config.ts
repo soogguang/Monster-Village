@@ -25,6 +25,8 @@ export const RULES = {
   rareChanceVeryEarly: 0.4,
   /** 그냥 일찍 끝냈을 때 희귀 새싹이 나올 확률 */
   rareChanceEarly: 0.05,
+  /** 시작 시각이 지나도 이 시간(분)까지는 집중을 안 했어도 말랑 반죽으로 봐줘요 */
+  grumpyGraceMinutes: 60,
 } as const;
 
 /** 집중 습관 기준값 (분) */
