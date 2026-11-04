@@ -43,9 +43,15 @@ describe('doughStage', () => {
     expect(doughStage(baseTask(), START - HOUR)).toBe('soft');
   });
 
-  it('시작 후 1시간까지는 집중을 안 했어도 말랑 반죽이에요', () => {
+  it('긴 할 일은 시작 후 최대 1시간까지 말랑 반죽이에요', () => {
     expect(doughStage(baseTask(), START + 59 * 60 * 1000)).toBe('soft');
     expect(doughStage(baseTask(), START + 61 * 60 * 1000)).toBe('grumpy');
+  });
+
+  it('짧은 할 일은 기간의 20%까지만 여유를 줘요 (1시간짜리면 12분)', () => {
+    const short = createTask({ id: 's', title: '짧은 일', startAt: START, dueAt: START + HOUR });
+    expect(doughStage(short, START + 11 * 60 * 1000)).toBe('soft');
+    expect(doughStage(short, START + 13 * 60 * 1000)).toBe('grumpy');
   });
 
   it('시작일이 지나도 집중을 안 했으면 심술 반죽이에요', () => {
