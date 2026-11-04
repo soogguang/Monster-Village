@@ -32,6 +32,17 @@
       "sleepImage": "sprout-cat-sleep.png",
       "personality": "민들레처럼 쉬는 걸 좋아해요.",
       "motif": "고양이"
+    },
+    {
+      "id": "sprout-rabbit",
+      "name": "펠트토끼",
+      "kind": "sprout",
+      "rare": false,
+      "unlock": null,
+      "image": "sprout-rabbit.png",
+      "sleepImage": "sprout-rabbit-sleep.png",
+      "personality": "긴 펠트 귀를 흔들며 폴짝폴짝 뛰는 걸 좋아해요.",
+      "motif": "펠트 토끼"
     }
   ]
 }
