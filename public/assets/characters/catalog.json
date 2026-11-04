@@ -21,6 +21,17 @@
       "sleepImage": "sprout-puppy-sleep.png",
       "personality": "땅파기를 좋아해요.",
       "motif": "강아지"
+    },
+    {
+      "id": "sprout-cat",
+      "name": "솜털고양이",
+      "kind": "sprout",
+      "rare": false,
+      "unlock": null,
+      "image": "sprout-cat.png",
+      "sleepImage": "sprout-cat-sleep.png",
+      "personality": "민들레처럼 쉬는 걸 좋아해요.",
+      "motif": "고양이"
     }
   ]
 }
