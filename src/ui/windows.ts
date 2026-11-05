@@ -1,6 +1,7 @@
 // 가운데에 뜨는 창들 (할 일, 캘린더, 도감, 내 주민)
 // 창 안의 목록은 저장소가 바뀔 때마다 다시 그리고, 입력 중인 폼은 건드리지 않아요.
 
+import { roomView, type RoomViewState } from '../net/rooms';
 import { friendshipStage } from '../rules/friendship';
 import { HABIT_IDS } from '../rules/habits';
 import { doughStage, progressRatio, type CalendarStyle, type Task } from '../rules/task';
@@ -484,4 +485,130 @@ function residentKindText(r: Resident): string {
   return r.kind === 'sprout' && r.rare ? '✨ 희귀 새싹' : RESIDENT_TEXT[r.kind];
 }
 
-export const WINDOWS: GameWindow[] = [tasksWindow, calendarWindow, dexWindow, residentsWindow];
+// ---------------------------------------------------------------- 방 (친구와 함께)
+
+export const roomsWindow: GameWindow = {
+  id: 'rooms', title: '우리 방', icon: '🏕️', key: 'G', label: '방',
+  mount(body, ctx) {
+    let mode: 'none' | 'create' | 'join' = 'none';
+
+    const render = (rs: RoomViewState) => {
+      if (!rs.backend) {
+        body.innerHTML = `<div class="empty">친구와 방을 만들려면 로그인이 필요해요.<br />오른쪽 위의 <b>카카오 로그인</b>을 눌러 주세요.</div>`;
+        return;
+      }
+      const me = rs.backend.me.id;
+      const roomTabs = rs.rooms.map((r) => `<button class="px-btn small" data-room="${r.id}" aria-pressed="${rs.active?.id === r.id}">${escapeHtml(r.name)}</button>`).join('');
+      const forms = mode === 'create'
+        ? `<form class="room-create slot row"><input class="px-input grow" name="name" maxlength="20" placeholder="방 이름 (예: 캡스톤 팀)" required /><button class="px-btn small green">만들기</button><button type="button" class="px-btn small ghost" data-act="close-form">취소</button></form>`
+        : mode === 'join'
+          ? `<form class="room-join slot row"><input class="px-input grow" name="code" maxlength="6" placeholder="초대 코드 6자리" required style="text-transform:uppercase" /><button class="px-btn small green">들어가기</button><button type="button" class="px-btn small ghost" data-act="close-form">취소</button></form>`
+          : '';
+      const head = `<div class="tabs">${roomTabs}<span style="flex:1"></span>
+        <button class="px-btn small green" data-act="create">+ 새 방</button>
+        <button class="px-btn small" data-act="join">초대 코드로 들어가기</button></div>${forms}<p class="form-error" hidden></p>`;
+
+      const room = rs.active;
+      if (!room) {
+        body.innerHTML = head + `<div class="empty" style="margin-top:8px">아직 들어간 방이 없어요.<br />방을 만들거나 친구에게 받은 초대 코드로 들어가 보세요.</div>`;
+        return;
+      }
+      const presence = new Map(rs.online.map((p) => [p.userId, p]));
+      const members = rs.members.map((m) => {
+        const p = presence.get(m.userId);
+        const state = p?.focusingOn ? `🔥 집중 중 · ${escapeHtml(p.focusingOn)}` : p ? '🟢 접속 중' : '⚪ 오프라인';
+        const residents = (m.save?.residents ?? []).length;
+        return `<div class="slot"><div class="row"><strong class="grow">${escapeHtml(m.nickname)}${m.userId === me ? ' (나)' : ''}</strong>
+          ${m.userId === me ? '' : `<button class="px-btn small ghost" data-act="bell" data-id="${m.userId}" title="응원의 종 치기">🔔</button>`}</div>
+          <div class="meta">${state} · 주민 ${residents}명</div></div>`;
+      }).join('');
+      const tasks = [...rs.tasks].sort((a, b) => Number(a.doneAt !== null) - Number(b.doneAt !== null) || (a.dueAt ?? Infinity) - (b.dueAt ?? Infinity));
+      const nameOf = (id: string | null) => rs.members.find((m) => m.userId === id)?.nickname ?? '누군가';
+      const tree = tasks.length
+        ? tasks.map((t) => `<div class="slot ${t.doneAt ? 'done-task' : ''}"><div class="row">
+            <span class="grow">${t.doneAt ? '✅' : '🍃'} ${escapeHtml(t.title)}</span>
+            ${t.dueAt ? `<span class="badge ${!t.doneAt && t.dueAt < Date.now() ? 'warn' : ''}">마감 ${formatDate(t.dueAt)}</span>` : ''}</div>
+            <div class="meta">${escapeHtml(nameOf(t.createdBy))}님이 걸었어요${t.doneAt ? ` · ${escapeHtml(nameOf(t.doneBy))}님이 ${formatDate(t.doneAt)}에 끝냈어요` : ''}</div>
+            <div class="actions">${t.doneAt ? '' : `<button class="px-btn small green" data-act="room-done" data-id="${t.id}">끝냈어요!</button>`}
+            ${t.createdBy === me ? `<button class="px-btn small ghost" data-act="room-delete" data-id="${t.id}">떼기</button>` : ''}</div></div>`).join('')
+        : '<div class="empty">아직 나무에 걸린 일이 없어요.</div>';
+
+      body.innerHTML = head + `
+        <div class="room-head slot row" style="margin-top:8px">
+          <strong class="grow">🏕️ ${escapeHtml(room.name)}</strong>
+          <span class="muted">초대 코드</span><span class="badge invite">${room.inviteCode}</span>
+          <button class="px-btn small ghost" data-act="copy" data-code="${room.inviteCode}">복사</button>
+          <button class="px-btn small ghost" data-act="leave">방 나가기</button>
+        </div>
+        <div class="room-layout">
+          <div><h3>👥 멤버 (🔥 ${rs.online.filter((p) => p.focusingOn).length}명 집중 중)</h3>${members}</div>
+          <div><h3>🌳 나무 · 공동 할 일</h3>
+            <form class="room-task slot row"><input class="px-input grow" name="title" maxlength="40" placeholder="같이 할 일 (예: 발표 자료)" required />
+              <input class="px-input" name="due" type="date" title="마감일 (선택)" /><button class="px-btn small green">걸기</button></form>
+            ${tree}
+          </div>
+        </div>`;
+    };
+
+    const showError = (err: unknown) => {
+      const el = body.querySelector<HTMLElement>('.form-error');
+      if (el) { el.textContent = (err as Error).message; el.hidden = false; } else ctx.toast((err as Error).message);
+    };
+
+    body.addEventListener('click', async (e) => {
+      const el = (e.target as HTMLElement).closest<HTMLElement>('[data-act],[data-room]');
+      if (!el) return;
+      const backend = roomView.state.backend;
+      try {
+        if (el.dataset.room) {
+          const room = roomView.state.rooms.find((r) => r.id === el.dataset.room);
+          if (room) await roomView.open(room);
+          return;
+        }
+        switch (el.dataset.act) {
+          case 'create': mode = 'create'; render(roomView.state); body.querySelector<HTMLInputElement>('.room-create input')?.focus(); break;
+          case 'join': mode = 'join'; render(roomView.state); body.querySelector<HTMLInputElement>('.room-join input')?.focus(); break;
+          case 'close-form': mode = 'none'; render(roomView.state); break;
+          case 'copy':
+            await navigator.clipboard?.writeText(el.dataset.code!).catch(() => undefined);
+            ctx.toast(`초대 코드 ${el.dataset.code}를 복사했어요. 친구에게 보내 주세요!`);
+            break;
+          case 'leave':
+            if (confirm('이 방에서 나갈까요? 다시 들어오려면 초대 코드가 필요해요.')) await roomView.leave();
+            break;
+          case 'bell': {
+            backend?.ringBell(el.dataset.id!);
+            const name = roomView.state.members.find((m) => m.userId === el.dataset.id)?.nickname ?? '친구';
+            ctx.toast(`🔔 ${name}님에게 응원의 종을 쳤어요!`);
+            break;
+          }
+          case 'room-done': await backend?.completeTask(el.dataset.id!); break;
+          case 'room-delete': await backend?.deleteTask(el.dataset.id!); break;
+        }
+      } catch (err) {
+        showError(err);
+      }
+    });
+
+    body.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.target as HTMLFormElement;
+      const data = new FormData(form);
+      try {
+        if (form.classList.contains('room-create')) { await roomView.create(String(data.get('name'))); mode = 'none'; render(roomView.state); }
+        if (form.classList.contains('room-join')) { await roomView.join(String(data.get('code'))); mode = 'none'; render(roomView.state); }
+        if (form.classList.contains('room-task')) {
+          const due = String(data.get('due') ?? '');
+          await roomView.state.backend?.addTask(roomView.state.active!.id, String(data.get('title')), due ? fromLocalInput(`${due}T23:59`) : null);
+        }
+      } catch (err) {
+        showError(err);
+      }
+    });
+
+    render(roomView.state);
+    return roomView.subscribe(render);
+  },
+};
+
+export const WINDOWS: GameWindow[] = [tasksWindow, calendarWindow, dexWindow, residentsWindow, roomsWindow];

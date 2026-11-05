@@ -4,6 +4,7 @@ import { RULES } from '../config';
 import type { HabitId } from '../rules/habits';
 import type { CompleteResult, GameStore } from '../store';
 import { HABIT_TEXT, RESIDENT_TEXT, escapeHtml, formatClock, formatElapsed, heartsText } from './format';
+import { roomView } from '../net/rooms';
 import { WINDOWS, type GameWindow, type WindowContext } from './windows';
 
 export function mountHud(store: GameStore, characterDir: string): void {
@@ -135,6 +136,23 @@ export function mountHud(store: GameStore, characterDir: string): void {
   renderStatus();
   store.subscribe(renderStatus);
   window.setInterval(renderStatus, 1000);
+
+  // ----- 방: 친구가 나에게 종을 치면 알려주고, 내 집중 상태를 방 친구들에게 보여줘요 -----
+  roomView.onBellForMe = (from) => toast(`🔔 ${from}님이 응원의 종을 쳤어요! 힘내요!`);
+  let sharedFocus: string | null | undefined;
+  const shareFocus = () => {
+    const s = store.get();
+    const title = (s.focus && s.tasks.find((t) => t.id === s.focus!.taskId)?.title) ?? null;
+    if (title === sharedFocus && roomView.state.active) return;
+    sharedFocus = title;
+    roomView.state.backend?.setFocus(title);
+  };
+  store.subscribe(shareFocus);
+  let lastRoomId: string | undefined;
+  roomView.subscribe((rs) => {
+    // 방에 새로 들어가면 지금 집중 상태를 한 번 알려줘요.
+    if (rs.active?.id !== lastRoomId) { lastRoomId = rs.active?.id; sharedFocus = undefined; shareFocus(); }
+  });
 
   // ----- 연결 신호: 창이 열려 있는 동안 30초마다 남겨요 -----
   // 창을 닫았거나 노트북이 잠들어서 5분 넘게 끊겼다면, 집중은 마지막 신호 시각에 끝난 것으로 기록돼요.

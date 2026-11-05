@@ -199,3 +199,11 @@ button, input, select { font: inherit; color: inherit; }
 .hearts { color: var(--berry); letter-spacing: 1px; }
 .yard-toggle { white-space: nowrap; cursor: pointer; font-size: 11px; }
 .slot.hidden-resident { opacity: 0.6; }
+
+/* 방 */
+.window[data-id='rooms'] { width: min(900px, calc(100vw - 48px)); }
+.room-layout { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 14px; margin-top: 8px; }
+@media (max-width: 720px) { .room-layout { grid-template-columns: 1fr; } }
+.room-head .badge.invite { font-family: 'Galmuri14', 'Galmuri11', sans-serif; font-size: 14px; letter-spacing: 2px; }
+.slot.done-task { opacity: 0.6; }
+.room-task { gap: 6px; margin-bottom: 6px; }

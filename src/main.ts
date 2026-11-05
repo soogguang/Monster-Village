@@ -4,7 +4,9 @@ import { VillageScene } from './scenes/VillageScene';
 import { GameStore, LocalStorage } from './store';
 import galmuri11 from 'galmuri/dist/Galmuri11.woff2?url';
 import galmuri14 from 'galmuri/dist/Galmuri14.woff2?url';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { startCloudSave } from './net/cloudSave';
+import { SupabaseRooms, roomView } from './net/rooms';
 import { getSupabase } from './net/supabase';
 import { mountHud } from './ui/hud';
 import { chosenGuest, mountAccountBadge, showLogin } from './ui/login';
@@ -15,8 +17,22 @@ const CHARACTER_DIR = 'assets/characters/';
 const store = new GameStore(new LocalStorage());
 store.setCatalog(await loadCatalog());
 await loadPixelFonts();
-await connectAccount();
+const account = await connectAccount();
 mountHud(store, CHARACTER_DIR);
+void connectRooms(account);
+
+/** 로그인했으면 친구 방에 이어요. 개발 서버에서 ?demo-room 을 붙이면 가짜 친구로 화면을 확인할 수 있어요. */
+async function connectRooms(account: { client: SupabaseClient; me: { id: string; nickname: string } } | null): Promise<void> {
+  try {
+    if (account) await roomView.connect(new SupabaseRooms(account.client, account.me));
+    else if (import.meta.env.DEV && new URLSearchParams(window.location.search).has('demo-room')) {
+      const { FakeRooms } = await import('./net/fakeRooms');
+      await roomView.connect(new FakeRooms());
+    }
+  } catch (err) {
+    console.warn('[방] 방 정보를 불러오지 못했어요.', err);
+  }
+}
 
 /**
  * Supabase가 설정돼 있으면 로그인 상태를 확인해요.
@@ -24,21 +40,23 @@ mountHud(store, CHARACTER_DIR);
  * - 로그인 안 했고 손님 모드도 안 골랐으면 로그인 화면을 보여줘요.
  * Supabase 값이 없으면(지금처럼 개발 중) 이 브라우저에만 저장해요.
  */
-async function connectAccount(): Promise<void> {
+async function connectAccount(): Promise<{ client: SupabaseClient; me: { id: string; nickname: string } } | null> {
   const client = getSupabase();
-  if (!client) return;
+  if (!client) return null;
   const { data } = await client.auth.getSession();
   const user = data.session?.user;
   if (!user) {
     if (!chosenGuest()) await showLogin(client);
     mountAccountBadge(client, null);
-    return;
+    return null;
   }
   const { data: profile } = await client.from('profiles').select('nickname').eq('id', user.id).maybeSingle();
-  mountAccountBadge(client, profile?.nickname ?? '주민');
+  const nickname = profile?.nickname ?? '주민';
+  mountAccountBadge(client, nickname);
   await startCloudSave(store, client, user.id).catch((err) =>
     console.warn('[클라우드 저장] 불러오지 못해서 이 브라우저의 데이터로 계속해요.', err),
   );
+  return { client, me: { id: user.id, nickname } };
 }
 
 /** 한글 도트 폰트(갈무리, OFL 라이선스)를 불러와요. 실패해도 기본 글꼴로 계속 돌아가요. */

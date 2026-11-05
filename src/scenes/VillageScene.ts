@@ -5,6 +5,7 @@ import Phaser from 'phaser';
 import { FRIENDSHIP, TILE_SIZE, pickPixelScale } from '../config';
 import { doughStage, type DoughStage, type Task } from '../rules/task';
 import type { GameState, GameStore, Resident } from '../store';
+import { roomView, type RoomViewState } from '../net/rooms';
 import { MAP_COLS, MAP_ROWS, PLAZA_SPOTS, YARDS, buildTiles, isBlocked, type Yard } from '../world/layout';
 import { makePlaceholderTextures } from './textures';
 
@@ -57,8 +58,11 @@ export class VillageScene extends Phaser.Scene {
     this.drawGround(tiles);
     this.addFenceColliders(tiles);
     this.addPlaza();
-    for (const yard of YARDS) this.addYardSign(yard);
-    this.addFriendDemoResidents();
+    for (const yard of YARDS) this.yardSigns.set(yard, this.addYardSign(yard));
+    // 옆집 마당, 모닥불, 나무는 방 친구들 상태에 따라 바뀌어요.
+    this.renderRoom(roomView.state);
+    const unsubscribeRoom = roomView.subscribe((rs) => this.renderRoom(rs));
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, unsubscribeRoom);
 
     const start = this.yardSpot(this.myYard, 0.5, 0.75);
     this.player = this.add.image(start.x, start.y, 'player').setOrigin(0.5, 1);
@@ -257,30 +261,61 @@ export class VillageScene extends Phaser.Scene {
       const x = (spot.col + 0.5) * TILE_SIZE;
       const y = (spot.row + 1) * TILE_SIZE;
       const obj = this.add.image(x, y, key).setOrigin(0.5, 1).setDepth(y);
-      this.makeLabel(x, y + TILE_SIZE * 0.125, label, '#2b2433').setOrigin(0.5, 0);
-      return obj;
+      const text = this.makeLabel(x, y + TILE_SIZE * 0.125, label, '#2b2433').setOrigin(0.5, 0);
+      return { obj, text };
     };
     const fire = place(PLAZA_SPOTS.campfire, 'campfire', '모닥불');
-    this.tweens.add({ targets: fire, scaleY: 1.08, duration: 300, yoyo: true, repeat: -1 });
-    place(PLAZA_SPOTS.pledgeTree, 'pledge-tree', '다짐 나무');
+    this.campfire = fire.obj;
+    this.campfireLabel = fire.text;
+    this.tweens.add({ targets: this.campfire, scaleY: '+=0.08', duration: 300, yoyo: true, repeat: -1 });
+    this.treeLabel = place(PLAZA_SPOTS.pledgeTree, 'pledge-tree', '나무').text;
     place(PLAZA_SPOTS.bell, 'bell', '응원의 종');
   }
 
-  private addYardSign(yard: Yard): void {
-    const { x, y } = this.yardSpot(yard, 0.5, 0);
-    this.makeLabel(x, y - TILE_SIZE * 1.25, yard.name, '#ffffff').setOrigin(0.5, 1).setBackgroundColor('#2b2433cc').setPadding(6, 2, 6, 2);
+  // ---------- 방 친구들 ----------
+
+  private campfire!: Phaser.GameObjects.Image;
+  private campfireLabel!: Phaser.GameObjects.Text;
+  private treeLabel!: Phaser.GameObjects.Text;
+  private yardSigns = new Map<Yard, Phaser.GameObjects.Text>();
+  /** 옆집 마당마다 지금 그려 둔 친구와 주민 그림 */
+  private friendYards = new Map<Yard, { key: string; sprites: Phaser.GameObjects.Image[] }>();
+
+  /**
+   * 방 상태를 마을에 그려요.
+   * - 옆집 마당 두 곳: 방 친구(들어온 순서대로 두 명)의 이름과 마당에 나온 주민
+   * - 모닥불: 같이 집중하는 사람 수만큼 커져요
+   * - 나무: 아직 안 끝난 공동 할 일 개수
+   */
+  private renderRoom(rs: RoomViewState): void {
+    const friends = roomView.friends();
+    const online = new Map(rs.online.map((p) => [p.userId, p]));
+    YARDS.filter((y) => y.owner === 'friend').forEach((yard, i) => {
+      const friend = friends[i];
+      const presence = friend && online.get(friend.userId);
+      const badge = presence?.focusingOn ? ' 🔥' : presence ? ' 🟢' : '';
+      this.yardSigns.get(yard)?.setText(friend ? `${friend.nickname}의 마당${badge}` : rs.active ? '빈 마당 (친구를 초대해 보세요)' : '빈 마당');
+
+      const residents = (friend?.save?.residents ?? []).filter((r) => r.visible !== false);
+      const key = friend ? `${friend.userId}:${residents.map((r) => `${r.id}:${r.speciesId}`).join(',')}` : '';
+      if (this.friendYards.get(yard)?.key === key) return;
+      for (const sprite of this.friendYards.get(yard)?.sprites ?? []) { this.tweens.killTweensOf(sprite); sprite.destroy(); }
+      const sprites = residents.map((r, n) => this.addResident(yard, { kind: r.kind, rare: r.rare, speciesId: r.speciesId ?? null }, n, false));
+      this.friendYards.set(yard, { key, sprites });
+    });
+
+    const focusing = roomView.focusingCount();
+    this.campfire.setScale(1 + Math.min(focusing, 4) * 0.25);
+    this.campfireLabel.setText(rs.active ? `모닥불 · 🔥 ${focusing}명 집중 중` : '모닥불');
+    const open = rs.tasks.filter((t) => t.doneAt === null).length;
+    this.treeLabel.setText(rs.active ? `나무 · 공동 할 일 ${open}개` : '나무');
   }
 
-  /** 친구 마당 확인용 임시 주민들 (동네 기능이 연결되면 실제 친구 데이터로 바꿔요) */
-  private addFriendDemoResidents(): void {
-    const demo: Pick<Resident, 'kind' | 'rare' | 'speciesId'>[] = [
-      { kind: 'sprout', rare: false, speciesId: null },
-      { kind: 'sprout', rare: true, speciesId: null },
-      { kind: 'sleepy', rare: false, speciesId: null },
-      { kind: 'trouble', rare: false, speciesId: null },
-    ];
-    for (const yard of YARDS.filter((y) => y.owner === 'friend')) demo.forEach((r, i) => this.addResident(yard, r, i, false));
+  private addYardSign(yard: Yard): Phaser.GameObjects.Text {
+    const { x, y } = this.yardSpot(yard, 0.5, 0);
+    return this.makeLabel(x, y - TILE_SIZE * 1.25, yard.name, '#ffffff').setOrigin(0.5, 1).setBackgroundColor('#2b2433cc').setPadding(6, 2, 6, 2);
   }
+
 
   /** 마당 안의 비율 위치(0~1)를 월드 좌표로 바꿔요. 울타리 안쪽 기준이에요. */
   private yardSpot(yard: Yard, fx: number, fy: number): { x: number; y: number } {
