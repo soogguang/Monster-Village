@@ -4,7 +4,7 @@
 // - 마당 밖(위쪽 숲, 마당 사이, 광장 주변)에도 나무와 꽃을 채워요.
 // 화면과 무관한 순수 계산이라 테스트할 수 있어요. 위치는 픽셀이 아니라 타일 단위(소수 가능)예요.
 
-import type { Rect, VillageLayout, YardPlan } from './layout';
+import { roadsOf, type Rect, type VillageLayout, type YardPlan } from './layout';
 
 export type DecorLayer = 'ground' | 'sorted';
 
@@ -181,12 +181,11 @@ export function plazaDecor(layout: VillageLayout): DecorItem[] {
   ];
 }
 
-/** 막히면 안 되는 곳: 큰길, 광장 연결 길, 광장, 마당(마당 안 장식은 yardDecor가 따로 놓아요) */
+/** 막히면 안 되는 곳: 가로길·세로길·광장 연결 길, 광장, 마당(마당 안 장식은 yardDecor가 따로 놓아요) */
 function isReserved(layout: VillageLayout, x: number, y: number, margin: number): boolean {
   const inRect = (rc: Rect, m: number) => x > rc.col - m && x < rc.col + rc.cols + m && y > rc.row - m && y < rc.row + rc.rows + m + 1;
   return (
-    inRect(layout.mainStreet, margin) ||
-    inRect(layout.plazaConnector, margin) ||
+    roadsOf(layout).some((road) => inRect(road, margin)) ||
     inRect(layout.plaza, margin) ||
     layout.yards.some((yd) => inRect(yd.rect, margin))
   );
@@ -200,13 +199,14 @@ export function outskirtsDecor(layout: VillageLayout): DecorItem[] {
   const smalls = ['decor-bush-round', 'decor-bush-blossom', 'decor-bush-hydrangea', 'decor-moss-rocks', 'decor-fern', 'decor-meadow-grass', 'decor-mushrooms', 'decor-flowers-daisy', 'decor-flowers-cosmos', 'decor-flowers-lavender'];
   const pick = <T,>(list: T[], a: number, b: number, salt: number) => list[Math.floor(noise(a, b, salt) * list.length)];
 
-  // 위쪽 숲 띠: 울타리 바로 위에 나무를 줄지어 세워요 (윗부분은 화면 밖으로 살짝 잘려요)
+  // 위쪽 숲 띠: 맨 위 마당 줄의 울타리 바로 위에 나무를 줄지어 세워요 (윗부분은 화면 밖으로 살짝 잘려요)
+  const topLine = bounds.row + 3;
   for (let x = bounds.col + 2; x < bounds.col + bounds.cols - 1; x += 3 + noise(x, 0, 1) * 2) {
-    items.push(item(pick(trees, x, 0, 2), x, 3 - noise(x, 1, 3) * 0.4));
+    items.push(item(pick(trees, x, 0, 2), x, topLine - noise(x, 1, 3) * 0.4));
   }
 
   // 나머지 풀밭: 듬성듬성 격자를 돌며 빈 곳에만 무리를 놓아요
-  for (let gy = 5; gy < bounds.row + bounds.rows - 1; gy += 3) {
+  for (let gy = bounds.row + 5; gy < bounds.row + bounds.rows - 1; gy += 3) {
     for (let gx = bounds.col + 1; gx < bounds.col + bounds.cols - 1; gx += 3) {
       const x = gx + noise(gx, gy, 4) * 2;
       const y = gy + noise(gx, gy, 5) * 2;

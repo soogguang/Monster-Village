@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { assignSlots, buildTiles, createVillageLayout, isBlocked, slotAt, withMinWidth, type VillageLayout } from './layout';
+import { assignSlots, buildTiles, cellAt, createVillageLayout, isBlocked, slotAt, withMinWidth, type VillageLayout } from './layout';
 
 /** 막힌 타일을 피해서 from에서 to까지 걸어갈 수 있는지 확인해요. (집·광장 물건은 화면 쪽 충돌이라 여기서는 울타리만 봐요) */
 function reachable(layout: VillageLayout, from: [number, number], to: [number, number]): boolean {
@@ -76,17 +76,77 @@ describe('동네 맵', () => {
   it('1,000명까지 자리가 겹치지 않아요', () => {
     const ids = Array.from({ length: 1000 }, (_, i) => `u${i}`);
     const layout = createVillageLayout(ids);
-    expect(new Set(layout.yards.map((y) => y.rect.col)).size).toBe(1000);
+    expect(new Set(layout.yards.map((y) => `${y.rect.col},${y.rect.row}`)).size).toBe(1000);
+    // 마당끼리도 광장과도 겹치지 않아요
+    const rects = [...layout.yards.map((y) => y.rect), layout.plaza];
+    const hit = (a: (typeof rects)[number], b: (typeof rects)[number]) =>
+      a.col < b.col + b.cols && b.col < a.col + a.cols && a.row < b.row + b.rows && b.row < a.row + a.rows;
+    for (let i = 0; i < rects.length; i++) for (let j = i + 1; j < rects.length; j++) expect(hit(rects[i], rects[j])).toBe(false);
   });
 
-  it('맵이 좁으면 양옆을 넓히고 큰길도 늘리지만, 마당과 광장은 그대로예요', () => {
+  it('맵이 좁으면 양옆 풀밭만 넓히고, 길·마당·광장은 그대로예요', () => {
     const one = createVillageLayout(['me']);
     const wide = withMinWidth(one, 72);
     expect(wide.bounds.cols).toBe(72);
-    expect(wide.mainStreet.cols).toBe(72);
+    expect(wide.streets).toEqual(one.streets);
     expect(wide.yards[0].rect).toEqual(one.yards[0].rect);
     expect(wide.plaza).toEqual(one.plaza);
     const three = createVillageLayout(['a', 'b', 'c']);
     expect(withMinWidth(three, 72)).toBe(three); // 이미 넓으면 그대로
+  });
+});
+
+/** 흙길·돌바닥만 밟아서 광장에서 to까지 갈 수 있는지 (길이 끊기지 않았는지) */
+function onRoads(layout: VillageLayout, to: [number, number]): boolean {
+  const { ground, bounds } = buildTiles(layout);
+  const from: [number, number] = [layout.plaza.col + 1, layout.plaza.row + 1];
+  const seen = new Set<string>();
+  const queue: [number, number][] = [from];
+  while (queue.length) {
+    const [c, r] = queue.shift()!;
+    const key = `${c},${r}`;
+    const ci = c - bounds.col;
+    const ri = r - bounds.row;
+    if (seen.has(key) || ci < 0 || ri < 0 || ci >= bounds.cols || ri >= bounds.rows || ground[ri][ci] === 'grass') continue;
+    if (c === to[0] && r === to[1]) return true;
+    seen.add(key);
+    queue.push([c + 1, r], [c - 1, r], [c, r + 1], [c, r - 1]);
+  }
+  return false;
+}
+
+describe('사람이 늘면 둥글게 퍼져요', () => {
+  it('처음 5명은 광장 위 한 줄 그대로예요', () => {
+    expect([0, 1, 2, 3, 4].map(cellAt)).toEqual([
+      { gx: 0, gy: 0 }, { gx: 1, gy: 0 }, { gx: -1, gy: 0 }, { gx: 2, gy: 0 }, { gx: -2, gy: 0 },
+    ]);
+  });
+
+  it('6번째부터는 광장 가까운 칸(광장 아래·양옆)부터 채워요', () => {
+    expect([5, 6, 7].map(cellAt)).toEqual([{ gx: 0, gy: 2 }, { gx: 1, gy: 1 }, { gx: -1, gy: 1 }]);
+  });
+
+  it('사람이 늘어도 먼저 온 사람의 마당은 움직이지 않아요', () => {
+    const ids = Array.from({ length: 30 }, (_, i) => `u${i}`);
+    const few = createVillageLayout(ids.slice(0, 8));
+    const many = createVillageLayout(ids);
+    expect(many.yards.slice(0, 8).map((y) => y.rect)).toEqual(few.yards.map((y) => y.rect));
+  });
+
+  it('25명이어도 광장에서 모든 마당 안까지 걸어갈 수 있고, 모든 문 앞이 길로 이어져요', () => {
+    const layout = createVillageLayout(Array.from({ length: 25 }, (_, i) => `u${i}`));
+    for (const yard of layout.yards) {
+      expect(reachable(layout, [layout.plaza.col + 1, layout.plaza.row + 1], [yard.rect.col + 2, yard.rect.row + 15])).toBe(true);
+      expect(onRoads(layout, [yard.gate.col + 1, yard.gate.row + 1])).toBe(true);
+    }
+  });
+
+  it('길은 단순해요: 한 줄이면 세로길 없음, 여러 줄이어도 세로길은 두 줄뿐', () => {
+    const five = createVillageLayout(['a', 'b', 'c', 'd', 'e']);
+    expect(five.streets).toHaveLength(1);
+    expect(five.avenues).toHaveLength(0);
+    const many = createVillageLayout(Array.from({ length: 40 }, (_, i) => `u${i}`));
+    expect(many.avenues).toHaveLength(2);
+    expect(many.streets).toHaveLength(new Set(many.yards.map((y) => y.rect.row)).size);
   });
 });

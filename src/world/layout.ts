@@ -1,10 +1,10 @@
 // 동네 맵 배치 (타일 단위)
-// Codex가 만든 배치 규격(design/village/layout-template.json, expandable-layout.mjs)을 게임 코드로 옮긴 것이에요.
-// - 마당과 집은 위쪽, 마당 출입문은 남쪽, 큰길과 광장(수호나무·모닥불·종)은 아래쪽
-// - 방 멤버 수만큼 마당을 좌우로 반복해요. 인원 상한은 없어요.
-// - 자리(slot)는 가운데 0, 오른쪽 1, 왼쪽 -1, 오른쪽 2, 왼쪽 -2 … 순서로 정해요.
-//   한 번 정해진 자리는 바뀌지 않고, 방을 나갔다 와도 같은 자리예요. 모든 멤버가 같은 배정을 봐요.
-// - 광장과 첫 마당(0번)의 좌표는 고정이고, 왼쪽으로 늘어나면 음수 좌표가 생겨요.
+// Codex가 만든 배치 규격(design/village/layout-template.json)을 바탕으로, 사람이 많아지면 둥글게 퍼지도록 바꿨어요.
+// - 집은 모두 남쪽을 봐요. 마당 문은 남쪽, 마당 줄마다 남쪽에 가로길이 있어요.
+// - 처음 5명은 광장 위 한 줄(기존 배치 그대로). 그다음부터는 광장에서 가까운 칸부터 둥글게 채우는 바둑판이에요.
+// - 길은 단순하게: 마당 줄마다 가로길 하나 + (줄이 여러 개일 때) 광장 양옆 세로길 두 줄
+// - 자리 번호(slot)는 DB에 0, 1, -1, 2, -2 … 로 저장되고, 번호 → 칸 순서는 항상 같아서 한 번 정한 집은 움직이지 않아요.
+// - 광장과 첫 마당(0번)의 좌표는 고정이고, 왼쪽·위쪽으로 늘어나면 음수 좌표가 생겨요.
 
 export interface Rect {
   col: number;
@@ -36,13 +36,22 @@ export interface YardPlan {
 export interface VillageLayout {
   assignments: SlotAssignment[];
   yards: YardPlan[];
-  mainStreet: Rect;
+  /** 마당 줄마다 남쪽에 난 가로길 */
+  streets: Rect[];
+  /** 마당 줄이 여러 개일 때 광장 양옆을 지나는 세로길 두 줄 */
+  avenues: Rect[];
   plaza: Rect;
   plazaConnector: Rect;
   /** 광장 물건 기준점: 바닥 가운데 타일 */
   anchors: { guardianTree: Spot; campfire: Spot; bell: Spot };
-  /** 맵 전체 범위. 왼쪽으로 늘어나면 col이 음수가 돼요 */
+  /** 맵 전체 범위. 왼쪽·위쪽으로 늘어나면 col·row가 음수가 돼요 */
   bounds: Rect;
+}
+
+/** 바둑판 칸 좌표. gx는 가로(0 = 가운데), gy는 세로(0 = 광장 위 첫 줄, 1 = 광장 줄) */
+export interface Cell {
+  gx: number;
+  gy: number;
 }
 
 export const TEMPLATE = {
@@ -55,7 +64,12 @@ export const TEMPLATE = {
     houseOffset: { col: 14, row: 7 },
     houseTextures: ['house-teal', 'house-clay'],
   },
-  mainStreet: { row: 25, rows: 3 },
+  /** 마당 줄 하나의 높이: 마당 22 + 가로길 3 + 풀밭 3 */
+  bandRows: 28,
+  street: { offsetRows: 22, rows: 3 },
+  /** 광장 양옆 세로길 (마당 사이 4칸 틈 중 3칸) */
+  avenueCols: [30, 62],
+  roadCols: 3,
   plaza: { col: 36, row: 30, cols: 24, rows: 12 },
   plazaConnector: { col: 46, row: 28, cols: 3, rows: 2 },
   anchors: {
@@ -63,14 +77,22 @@ export const TEMPLATE = {
     campfire: { col: 49, row: 40 },
     bell: { col: 56, row: 39 },
   },
-  bounds: { row: 0, rows: 44 },
   boundsPaddingCols: 2,
+  boundsPaddingRows: { top: 3, bottom: 2 },
 } as const;
 
-/** i번째로 배정되는 자리: 0, 1, -1, 2, -2, … */
+/** 광장이 차지하는 칸 */
+export const PLAZA_CELL: Cell = { gx: 0, gy: 1 };
+
+/** i번째로 배정되는 자리 번호: 0, 1, -1, 2, -2, … (DB에 저장되는 값) */
 export function slotAt(index: number): number {
   if (index === 0) return 0;
   return index % 2 === 0 ? -index / 2 : (index + 1) / 2;
+}
+
+/** 자리 번호 → 몇 번째 자리인지 (slotAt의 반대) */
+export function slotIndex(slot: number): number {
+  return slot === 0 ? 0 : slot > 0 ? slot * 2 - 1 : -slot * 2;
 }
 
 /**
@@ -96,39 +118,114 @@ export function assignSlots(memberIds: string[], previous: SlotAssignment[] = []
   return assignments;
 }
 
+// ---------------------------------------------------------------- 둥글게 퍼지는 바둑판
+
+/** 처음 5명은 광장 위 한 줄 (가운데 → 오른쪽 → 왼쪽 → …) */
+const FIRST_ROW: Cell[] = [{ gx: 0, gy: 0 }, { gx: 1, gy: 0 }, { gx: -1, gy: 0 }, { gx: 2, gy: 0 }, { gx: -2, gy: 0 }];
+
+/** 광장 가운데와의 거리 (타일 단위) */
+function distanceToPlaza(c: Cell): number {
+  return Math.hypot(c.gx * TEMPLATE.yard.strideCols, (c.gy - PLAZA_CELL.gy) * TEMPLATE.bandRows);
+}
+
+let spiral: Cell[] = [...FIRST_ROW];
+let spiralRadius = 0;
+
+/**
+ * n번째 자리의 칸. 처음 5칸은 광장 위 한 줄이고, 그다음부터는 광장에서 가까운 칸부터 둥글게 채워요.
+ * 순서는 항상 같아서, 사람이 늘어도 이미 정해진 칸은 바뀌지 않아요.
+ */
+export function cellAt(index: number): Cell {
+  while (spiral.length <= index) {
+    spiralRadius += 2;
+    const R = spiralRadius;
+    const reach = R * Math.min(TEMPLATE.yard.strideCols, TEMPLATE.bandRows);
+    const taken = new Set([...FIRST_ROW, PLAZA_CELL].map((c) => `${c.gx},${c.gy}`));
+    const candidates: Cell[] = [];
+    for (let gy = PLAZA_CELL.gy - R; gy <= PLAZA_CELL.gy + R; gy++) {
+      for (let gx = -R; gx <= R; gx++) {
+        const cell = { gx, gy };
+        // 이 반지름 안의 칸이 모두 들어왔을 때만 순서를 확정해요.
+        if (!taken.has(`${gx},${gy}`) && distanceToPlaza(cell) <= reach) candidates.push(cell);
+      }
+    }
+    candidates.sort(
+      (a, b) =>
+        distanceToPlaza(a) - distanceToPlaza(b) ||
+        Math.abs(a.gx) - Math.abs(b.gx) ||
+        Number(a.gx < 0) - Number(b.gx < 0) ||
+        b.gy - a.gy,
+    );
+    spiral = [...FIRST_ROW, ...candidates];
+  }
+  return spiral[index];
+}
+
+export function cellOfSlot(slot: number): Cell {
+  return cellAt(slotIndex(slot));
+}
+
+function cellRect(cell: Cell): Rect {
+  const { yard, bandRows } = TEMPLATE;
+  return { col: yard.origin.col + cell.gx * yard.strideCols, row: yard.origin.row + cell.gy * bandRows, cols: yard.cols, rows: yard.rows };
+}
+
+function streetRow(gy: number): number {
+  return TEMPLATE.yard.origin.row + gy * TEMPLATE.bandRows + TEMPLATE.street.offsetRows;
+}
+
 export function createVillageLayout(memberIds: string[], previous: SlotAssignment[] = []): VillageLayout {
   const assignments = assignSlots(memberIds, previous);
-  const { yard, plaza } = TEMPLATE;
-  const yardCol = (slot: number) => yard.origin.col + slot * yard.strideCols;
+  const { yard, plaza, roadCols } = TEMPLATE;
+  const [leftAvenue, rightAvenue] = TEMPLATE.avenueCols;
 
   const yards: YardPlan[] = memberIds.map((userId) => {
     const slot = assignments.get(userId)!;
-    const col = yardCol(slot);
+    const rect = cellRect(cellOfSlot(slot));
     return {
       userId,
       slot,
-      rect: { col, row: yard.origin.row, cols: yard.cols, rows: yard.rows },
-      gate: { col: col + yard.gate.offsetCols, row: yard.origin.row + yard.rows - 1, cols: yard.gate.cols, rows: 1 },
+      rect,
+      gate: { col: rect.col + yard.gate.offsetCols, row: rect.row + yard.rows - 1, cols: yard.gate.cols, rows: 1 },
       house: {
-        col: col + yard.houseOffset.col,
-        row: yard.origin.row + yard.houseOffset.row,
-        texture: yard.houseTextures[Math.abs(slot) % yard.houseTextures.length],
+        col: rect.col + yard.houseOffset.col,
+        row: rect.row + yard.houseOffset.row,
+        texture: yard.houseTextures[slotIndex(slot) % yard.houseTextures.length],
       },
     };
   });
 
-  // 나간 멤버의 자리까지 포함해서 범위를 잡아요. (사람이 나가도 맵이 줄어들며 다른 집이 움직이지 않게)
-  let left = Math.min(yard.origin.col, plaza.col);
-  let right = Math.max(yard.origin.col + yard.cols, plaza.col + plaza.cols);
-  for (const slot of assignments.values()) {
-    left = Math.min(left, yardCol(slot));
-    right = Math.max(right, yardCol(slot) + yard.cols);
+  // 나간 멤버의 자리까지 포함해서 길과 범위를 잡아요. (사람이 나가도 다른 집과 길이 움직이지 않게)
+  const cells = [...assignments.values()].map(cellOfSlot);
+  const bands = [...new Set(cells.map((c) => c.gy))].sort((a, b) => a - b);
+
+  // 가로길: 마당 줄마다 하나. 그 줄의 마당 범위만큼 + 광장 양옆 세로길까지 닿게
+  const streets: Rect[] = bands.map((gy) => {
+    const inBand = cells.filter((c) => c.gy === gy).map(cellRect);
+    const left = Math.min(leftAvenue, ...inBand.map((r) => r.col));
+    const right = Math.max(rightAvenue + roadCols, ...inBand.map((r) => r.col + r.cols));
+    return { col: left, row: streetRow(gy), cols: right - left, rows: TEMPLATE.street.rows };
+  });
+
+  // 세로길: 마당 줄이 둘 이상일 때만, 광장 양옆 두 줄로 모든 가로길을 이어요.
+  const avenues: Rect[] = [];
+  if (bands.length > 1) {
+    const top = streetRow(bands[0]);
+    const bottom = streetRow(bands[bands.length - 1]) + TEMPLATE.street.rows;
+    for (const col of TEMPLATE.avenueCols) avenues.push({ col, row: top, cols: roadCols, rows: bottom - top });
   }
+
+  const allRects = [...cells.map(cellRect), ...streets, plaza];
+  const left = Math.min(...allRects.map((r) => r.col));
+  const right = Math.max(...allRects.map((r) => r.col + r.cols));
+  const top = Math.min(...cells.map((c) => cellRect(c).row), plaza.row) - TEMPLATE.boundsPaddingRows.top;
+  const bottom = Math.max(...allRects.map((r) => r.row + r.rows)) + TEMPLATE.boundsPaddingRows.bottom;
   const pad = TEMPLATE.boundsPaddingCols;
   return {
     assignments: [...assignments].map(([userId, slot]) => ({ userId, slot })),
     yards,
-    mainStreet: { col: left, row: TEMPLATE.mainStreet.row, cols: right - left, rows: TEMPLATE.mainStreet.rows },
+    streets,
+    avenues,
     plaza: { ...plaza },
     plazaConnector: { ...TEMPLATE.plazaConnector },
     anchors: {
@@ -136,20 +233,25 @@ export function createVillageLayout(memberIds: string[], previous: SlotAssignmen
       campfire: { ...TEMPLATE.anchors.campfire },
       bell: { ...TEMPLATE.anchors.bell },
     },
-    bounds: { col: left - pad, row: TEMPLATE.bounds.row, cols: right - left + pad * 2, rows: TEMPLATE.bounds.rows },
+    bounds: { col: left - pad, row: top, cols: right - left + pad * 2, rows: bottom - top },
   };
+}
+
+/** 가로길·세로길·광장 연결 길 전부 */
+export function roadsOf(layout: VillageLayout): Rect[] {
+  return [...layout.streets, ...layout.avenues, layout.plazaConnector];
 }
 
 /**
  * 맵이 화면보다 좁으면(혼자이거나 멤버가 적을 때) 양옆에 풀밭을 넓혀서 최소 폭을 맞춰요.
- * 큰길도 같이 늘려요. 마당·광장 좌표는 그대로예요.
+ * 길은 늘리지 않아요(풀밭이 길로 어수선해지지 않게). 마당·광장 좌표는 그대로예요.
  */
 export function withMinWidth(layout: VillageLayout, minCols: number, extraRows = 0): VillageLayout {
   const extra = minCols - layout.bounds.cols;
   if (extra <= 0 && extraRows === 0) return layout;
   const left = Math.max(0, Math.floor(extra / 2));
   const bounds = { col: layout.bounds.col - left, row: layout.bounds.row, cols: Math.max(minCols, layout.bounds.cols), rows: layout.bounds.rows + extraRows };
-  return { ...layout, bounds, mainStreet: { ...layout.mainStreet, col: bounds.col, cols: bounds.cols } };
+  return { ...layout, bounds };
 }
 
 // ---------------------------------------------------------------- 타일
@@ -179,8 +281,7 @@ export function buildTiles(layout: VillageLayout): TileGrid {
     for (let row = r.row; row < r.row + r.rows; row++) for (let col = r.col; col < r.col + r.cols; col++) setGround(col, row, t);
   };
 
-  fill(layout.mainStreet, 'dirt');
-  fill(layout.plazaConnector, 'dirt');
+  for (const road of roadsOf(layout)) fill(road, 'dirt');
   fill(layout.plaza, 'stone');
 
   for (const yard of layout.yards) {

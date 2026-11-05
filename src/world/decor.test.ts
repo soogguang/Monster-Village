@@ -1,23 +1,22 @@
 import { describe, expect, it } from 'vitest';
 import { grassTileAt, themeOf, villageDecor, yardDecor } from './decor';
-import { createVillageLayout, withMinWidth } from './layout';
+import { createVillageLayout, roadsOf, withMinWidth } from './layout';
 
 const overlaps = (x: number, y: number, rect: { col: number; row: number; cols: number; rows: number }) =>
   x > rect.col && x < rect.col + rect.cols && y > rect.row && y <= rect.row + rect.rows;
 
 describe('마을 꾸미기', () => {
-  const layout = withMinWidth(createVillageLayout(['me', 'friend-a', 'friend-b', 'friend-c']), 72, 4);
+  const layout = withMinWidth(createVillageLayout(Array.from({ length: 12 }, (_, i) => `member-${i}`)), 72, 4);
   const decor = villageDecor(layout);
 
   it('같은 마을이면 매번 같은 자리에 놓여요', () => {
     expect(villageDecor(layout)).toEqual(decor);
   });
 
-  it('막히는 장식은 큰길·광장 연결 길·마당 문 앞 길을 막지 않아요', () => {
+  it('막히는 장식은 가로길·세로길·광장 연결 길·마당 문 앞 길을 막지 않아요 (12명 마을)', () => {
     const blocking = decor.filter((d) => d.block);
     for (const d of blocking) {
-      expect(overlaps(d.x, d.y, layout.mainStreet)).toBe(false);
-      expect(overlaps(d.x, d.y, layout.plazaConnector)).toBe(false);
+      for (const road of roadsOf(layout)) expect(overlaps(d.x, d.y, road)).toBe(false);
       for (const yard of layout.yards) {
         // 집 앞~남쪽 문 길 (가로 3칸 + 양옆 반 칸 여유)
         const path = { col: yard.gate.col - 0.5, row: yard.house.row + 1, cols: yard.gate.cols + 1, rows: yard.gate.row - yard.house.row };

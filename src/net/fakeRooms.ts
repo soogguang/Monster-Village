@@ -1,10 +1,19 @@
 // 개발용 가짜 방 (Supabase 없이 화면 확인용)
 // 개발 서버에서 주소 끝에 ?demo-room 을 붙이면 켜져요. 배포 버전에는 들어가지 않아요.
+// ?demo-room=13 처럼 숫자를 붙이면 그 인원만큼 친구를 채워서 큰 방 배치를 볼 수 있어요.
 
 import type { GameState } from '../store';
 import type { Presence, Room, RoomBackend, RoomEvents, RoomMember, RoomTask } from './rooms';
 
 const DAY = 24 * 60 * 60 * 1000;
+const BASE_MEMBERS = 4;
+
+/** 주소의 ?demo-room=숫자 (없으면 기본 4명) */
+function demoSize(): number {
+  const n = Number(new URLSearchParams(window.location.search).get('demo-room'));
+  return Number.isInteger(n) && n > BASE_MEMBERS ? Math.min(n, 60) : BASE_MEMBERS;
+}
+const EXTRA_IDS = Array.from({ length: demoSize() - BASE_MEMBERS }, (_, i) => `f${i + 4}`);
 
 function friendSave(species: string[]): Partial<GameState> {
   const now = Date.now();
@@ -39,9 +48,11 @@ export class FakeRooms implements RoomBackend {
       { userId: 'f1', nickname: '지우', save: friendSave(['sprout-cat', 'sprout-rabbit']) },
       { userId: 'f2', nickname: '민준', save: friendSave(['sprout-mandu', 'sprout-puppy', 'sprout-cat']) },
       { userId: 'f3', nickname: '서연', save: friendSave([]) },
+      ...EXTRA_IDS.map((userId, i) => ({ userId, nickname: `친구${i + 4}`, save: friendSave(i % 2 ? ['sprout-cat'] : []) })),
     ];
   }
   async loadSlots() {
+    // 늘어난 친구는 자리를 비워 두면 화면이 순서대로 정해요.
     return [{ userId: 'me', slot: 0 }, { userId: 'f1', slot: 1 }, { userId: 'f2', slot: -1 }, { userId: 'f3', slot: 2 }];
   }
   async addTask(_roomId: string, title: string, dueAt: number | null) {

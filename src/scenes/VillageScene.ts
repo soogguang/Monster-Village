@@ -21,6 +21,8 @@ const LABEL_FONT_PX = 13;
 const MIN_WORLD_COLS = 72;
 /** 혼자일 때 내 마당의 주인 이름 */
 const SOLO_ID = 'me';
+/** 그리는 순서: 바닥 층은 맨 아래, 이름표는 맨 위. 나머지는 발밑 y값 (위쪽 마당은 y가 음수라 0보다 훨씬 아래에 둬요) */
+const DEPTH = { ground: -10_000_000, overlay: -9_999_999, flatDecor: -9_999_998, label: 10_000_000 } as const;
 
 const STAGE_LABELS: Record<DoughStage, string> = { soft: '말랑', grumpy: '심술', monster: '몬스터' };
 
@@ -172,8 +174,8 @@ export class VillageScene extends Phaser.Scene {
     // 바닥과 울타리: 타일맵은 화면에 보이는 부분만 그려서 마당이 많아도 가벼워요.
     const map = this.make.tilemap({ tileWidth: T, tileHeight: T, width: bounds.cols, height: bounds.rows });
     const tileset = map.addTilesetImage('terrain', 'terrain-tiles', T, T, 0, 0)!;
-    const ground = map.createBlankLayer('ground', tileset, bounds.col * T, bounds.row * T)!.setDepth(-2);
-    const overlay = map.createBlankLayer('overlay', tileset, bounds.col * T, bounds.row * T)!.setDepth(-1);
+    const ground = map.createBlankLayer('ground', tileset, bounds.col * T, bounds.row * T)!.setDepth(DEPTH.ground);
+    const overlay = map.createBlankLayer('overlay', tileset, bounds.col * T, bounds.row * T)!.setDepth(DEPTH.overlay);
     tiles.ground.forEach((row, r) =>
       row.forEach((t, c) => {
         // 풀 자리는 마당 테마에 맞는 꽃 풀밭을 무리 지어 섞어요.
@@ -202,7 +204,7 @@ export class VillageScene extends Phaser.Scene {
       if (!this.textures.exists(d.key)) continue;
       const x = d.x * T;
       const y = d.y * T;
-      things.push(this.add.image(x, y, d.key).setOrigin(0.5, 1).setDepth(d.layer === 'ground' ? -0.5 : y));
+      things.push(this.add.image(x, y, d.key).setOrigin(0.5, 1).setDepth(d.layer === 'ground' ? DEPTH.flatDecor : y));
       if (d.block) this.block(x, y - (d.block.h * T) / 2, d.block.w * T, d.block.h * T);
     }
 
@@ -450,7 +452,7 @@ export class VillageScene extends Phaser.Scene {
     const label = this.add
       .text(x, y, text, { fontFamily: 'sans-serif', fontSize: `${LABEL_FONT_PX}px`, color, resolution: 2 })
       .setScale(1 / this.pixelScale)
-      .setDepth(100_000);
+      .setDepth(DEPTH.label);
     this.labels.push(label);
     label.once(Phaser.GameObjects.Events.DESTROY, () => (this.labels = this.labels.filter((l) => l !== label)));
     return label;
