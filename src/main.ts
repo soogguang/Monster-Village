@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { parseCatalog, type CatalogEntry } from './rules/catalog';
-import { VillageScene } from './scenes/VillageScene';
+import { VillageScene, type WorldAsset } from './scenes/VillageScene';
 import { GameStore, LocalStorage } from './store';
 import galmuri11 from 'galmuri/dist/Galmuri11.woff2?url';
 import galmuri14 from 'galmuri/dist/Galmuri14.woff2?url';
@@ -16,6 +16,7 @@ const CHARACTER_DIR = 'assets/characters/';
 
 const store = new GameStore(new LocalStorage());
 store.setCatalog(await loadCatalog());
+const worldAssets = await loadWorldAssets();
 await loadPixelFonts();
 const account = await connectAccount();
 mountHud(store, CHARACTER_DIR);
@@ -65,6 +66,23 @@ async function loadPixelFonts(): Promise<void> {
   await Promise.all(fonts.map((f) => f.load().then((loaded) => document.fonts.add(loaded)).catch(() => undefined)));
 }
 
+/**
+ * 배경 그림 목록(public/assets/village-assets.json, Codex 담당)을 읽어요.
+ * 텍스처 이름은 목록의 texture_key를 그대로 써요. 목록이 없으면 임시 그림으로 그려요.
+ */
+async function loadWorldAssets(): Promise<WorldAsset[]> {
+  try {
+    const res = await fetch('assets/village-assets.json', { cache: 'no-cache' });
+    if (!res.ok) return [];
+    const manifest = (await res.json()) as { assets?: { file?: string; texture_key?: string }[] };
+    return (manifest.assets ?? [])
+      .filter((a): a is { file: string; texture_key: string } => typeof a.file === 'string' && typeof a.texture_key === 'string')
+      .map((a) => ({ key: a.texture_key, url: `assets/${a.file}` }));
+  } catch {
+    return [];
+  }
+}
+
 /** 캐릭터 목록을 불러와요. 아직 파일이 없거나 형식이 틀려도 게임은 임시 그림으로 계속 돌아가요. */
 async function loadCatalog(): Promise<CatalogEntry[]> {
   try {
@@ -88,5 +106,5 @@ new Phaser.Game({
   backgroundColor: '#1d1b2a',
   physics: { default: 'arcade' },
   scale: { mode: Phaser.Scale.RESIZE },
-  scene: [new VillageScene(store, CHARACTER_DIR)],
+  scene: [new VillageScene(store, CHARACTER_DIR, worldAssets)],
 });

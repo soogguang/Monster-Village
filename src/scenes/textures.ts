@@ -13,8 +13,9 @@ export function makePlaceholderTextures(scene: Phaser.Scene): void {
   const g = scene.make.graphics({}, false);
   const rng = new Phaser.Math.RandomDataGenerator(['tiles']);
   const px = (x: number, y: number, color: number, w = 1, h = 1) => g.fillStyle(color).fillRect(x * K, y * K, w * K, h * K);
+  // 실제 그림(PNG)이 이미 불러와진 이름은 건너뛰어요. 임시 그림은 그림이 없을 때만 써요.
   const save = (key: string, w: number, h: number) => {
-    g.generateTexture(key, w * K, h * K);
+    if (!scene.textures.exists(key)) g.generateTexture(key, w * K, h * K);
     g.clear();
   };
 
@@ -33,7 +34,7 @@ export function makePlaceholderTextures(scene: Phaser.Scene): void {
       const petal = rng.pick([0xffffff, 0xf7a8c8, 0xf6e27a]);
       px(fx, fy - 1, petal); px(fx - 1, fy, petal); px(fx + 1, fy, petal); px(fx, fy + 1, petal); px(fx, fy, 0xf2c84b);
     }
-    save(`grass-${v}`, T, T);
+    save(`grass-0${v + 1}`, T, T);
   }
 
   px(0, 0, 0xc9995f, T, T);
@@ -55,6 +56,8 @@ export function makePlaceholderTextures(scene: Phaser.Scene): void {
   px(0, 0, 0x78c25a, T, T);
   px(5, 0, OUTLINE, 6, 16); px(6, 0, 0xa0703f, 4, 16); px(6, 0, 0xb98249, 1, 16);
   save('fence-v', T, T);
+  px(0, 0, OUTLINE, 16, 16); px(5, 0, 0xa0703f, 6, 16); px(0, 6, 0xb98249, 16, 3);
+  save('fence-corner', T, T);
 
   // 반죽 (말랑, 심술, 몬스터)
   const blob = (key: string, fill: number, shade: number, face: 'happy' | 'grumpy', extra?: () => void) => {
@@ -87,9 +90,11 @@ export function makePlaceholderTextures(scene: Phaser.Scene): void {
   save('player', 16, 24);
 
   // 광장 물건: 모닥불, 다짐 나무, 응원의 종
-  px(2, 12, 0x6b4a32, 12, 3); px(1, 13, OUTLINE, 14, 1);
-  px(5, 4, 0xe2572b, 6, 8); px(6, 2, 0xf08a3a, 4, 9); px(7, 5, 0xf6dd6b, 2, 6);
-  save('campfire', 16, 16);
+  for (const [frame, flame] of [['campfire-01', 2], ['campfire-02', 3]] as const) {
+    px(2, 12, 0x6b4a32, 12, 3); px(1, 13, OUTLINE, 14, 1);
+    px(5, 4, 0xe2572b, 6, 8); px(6, flame, 0xf08a3a, 4, 11 - flame); px(7, 5, 0xf6dd6b, 2, 6);
+    save(frame, 16, 16);
+  }
 
   px(12, 30, OUTLINE, 8, 2); px(13, 20, 0x7a5232, 6, 11); px(14, 20, 0x94673f, 2, 11);
   px(2, 4, OUTLINE, 28, 18); px(3, 2, 0x4e9a45, 26, 18); px(5, 0, 0x4e9a45, 22, 4); px(6, 3, 0x6cbf5a, 10, 6);

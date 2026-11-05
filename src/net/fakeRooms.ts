@@ -41,6 +41,9 @@ export class FakeRooms implements RoomBackend {
       { userId: 'f3', nickname: '서연', save: friendSave([]) },
     ];
   }
+  async loadSlots() {
+    return [{ userId: 'me', slot: 0 }, { userId: 'f1', slot: 1 }, { userId: 'f2', slot: -1 }, { userId: 'f3', slot: 2 }];
+  }
   async addTask(_roomId: string, title: string, dueAt: number | null) {
     this.tasks = [...this.tasks, { id: crypto.randomUUID(), title, dueAt, createdBy: 'me', doneBy: null, doneAt: null, createdAt: Date.now() }];
     this.events?.onTasks(this.tasks);

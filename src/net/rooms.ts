@@ -8,6 +8,7 @@
 
 import type { RealtimeChannel, SupabaseClient } from '@supabase/supabase-js';
 import type { GameState } from '../store';
+import type { SlotAssignment } from '../world/layout';
 
 export interface Room {
   id: string;
@@ -53,6 +54,8 @@ export interface RoomBackend {
   joinRoom(code: string): Promise<Room>;
   leaveRoom(roomId: string): Promise<void>;
   loadMembers(roomId: string): Promise<RoomMember[]>;
+  /** 방의 마당 자리 배정 (나간 멤버의 자리도 포함). 모든 멤버가 같은 배정을 봐요 */
+  loadSlots(roomId: string): Promise<SlotAssignment[]>;
   addTask(roomId: string, title: string, dueAt: number | null): Promise<void>;
   completeTask(taskId: string): Promise<void>;
   deleteTask(taskId: string): Promise<void>;
@@ -123,6 +126,16 @@ export class SupabaseRooms implements RoomBackend {
       nickname: (profiles as { id: string; nickname: string }[] | null)?.find((p) => p.id === id)?.nickname ?? '주민',
       save: ((saves as { user_id: string; state: Partial<GameState> }[] | null)?.find((s) => s.user_id === id)?.state) ?? null,
     }));
+  }
+
+  async loadSlots(roomId: string): Promise<SlotAssignment[]> {
+    const { data, error } = await this.client.from('room_slots').select('user_id, slot').eq('room_id', roomId);
+    // 0002_room_slots.sql을 아직 실행하지 않았으면 표가 없어요. 그때는 들어온 순서대로 화면에서 정해요.
+    if (error) {
+      console.warn('[방] 자리 정보를 불러오지 못해서 들어온 순서로 배치해요.', error.message);
+      return [];
+    }
+    return (data as { user_id: string; slot: number }[]).map((r) => ({ userId: r.user_id, slot: r.slot }));
   }
 
   private async loadTasks(roomId: string): Promise<RoomTask[]> {
@@ -200,6 +213,7 @@ export interface RoomViewState {
   rooms: Room[];
   active: Room | null;
   members: RoomMember[];
+  slots: SlotAssignment[];
   tasks: RoomTask[];
   online: Presence[];
 }
@@ -208,7 +222,7 @@ const ACTIVE_KEY = 'monster-village:active-room';
 
 /** 방 상태를 한곳에 모아서, 방 창과 마을 화면이 같은 내용을 보게 해요. */
 export class RoomView {
-  state: RoomViewState = { backend: null, rooms: [], active: null, members: [], tasks: [], online: [] };
+  state: RoomViewState = { backend: null, rooms: [], active: null, members: [], slots: [], tasks: [], online: [] };
   private listeners = new Set<(s: RoomViewState) => void>();
   private leaveChannel: (() => void) | null = null;
   /** 누가 나에게 종을 쳤을 때 */
@@ -238,9 +252,9 @@ export class RoomView {
     if (!backend) return;
     this.leaveChannel?.();
     try { window.localStorage.setItem(ACTIVE_KEY, room.id); } catch { /* 무시 */ }
-    this.patch({ active: room, members: [], tasks: [], online: [] });
-    const members = await backend.loadMembers(room.id);
-    this.patch({ members });
+    this.patch({ active: room, members: [], slots: [], tasks: [], online: [] });
+    const [members, slots] = await Promise.all([backend.loadMembers(room.id), backend.loadSlots(room.id)]);
+    this.patch({ members, slots });
     this.leaveChannel = await backend.enter(room.id, {
       onTasks: (tasks) => this.patch({ tasks }),
       onPresence: (online) => this.patch({ online }),
@@ -266,7 +280,7 @@ export class RoomView {
     this.leaveChannel?.();
     this.leaveChannel = null;
     await backend.leaveRoom(active.id);
-    this.patch({ active: null, members: [], tasks: [], online: [] });
+    this.patch({ active: null, members: [], slots: [], tasks: [], online: [] });
     await this.refreshRooms();
     if (this.state.rooms[0]) await this.open(this.state.rooms[0]);
   }
