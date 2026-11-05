@@ -4,7 +4,10 @@ import { VillageScene } from './scenes/VillageScene';
 import { GameStore, LocalStorage } from './store';
 import galmuri11 from 'galmuri/dist/Galmuri11.woff2?url';
 import galmuri14 from 'galmuri/dist/Galmuri14.woff2?url';
+import { startCloudSave } from './net/cloudSave';
+import { getSupabase } from './net/supabase';
 import { mountHud } from './ui/hud';
+import { chosenGuest, mountAccountBadge, showLogin } from './ui/login';
 import './ui/pixel.css';
 
 const CHARACTER_DIR = 'assets/characters/';
@@ -12,7 +15,31 @@ const CHARACTER_DIR = 'assets/characters/';
 const store = new GameStore(new LocalStorage());
 store.setCatalog(await loadCatalog());
 await loadPixelFonts();
+await connectAccount();
 mountHud(store, CHARACTER_DIR);
+
+/**
+ * Supabase가 설정돼 있으면 로그인 상태를 확인해요.
+ * - 로그인했으면 내 게임 데이터를 클라우드와 이어요.
+ * - 로그인 안 했고 손님 모드도 안 골랐으면 로그인 화면을 보여줘요.
+ * Supabase 값이 없으면(지금처럼 개발 중) 이 브라우저에만 저장해요.
+ */
+async function connectAccount(): Promise<void> {
+  const client = getSupabase();
+  if (!client) return;
+  const { data } = await client.auth.getSession();
+  const user = data.session?.user;
+  if (!user) {
+    if (!chosenGuest()) await showLogin(client);
+    mountAccountBadge(client, null);
+    return;
+  }
+  const { data: profile } = await client.from('profiles').select('nickname').eq('id', user.id).maybeSingle();
+  mountAccountBadge(client, profile?.nickname ?? '주민');
+  await startCloudSave(store, client, user.id).catch((err) =>
+    console.warn('[클라우드 저장] 불러오지 못해서 이 브라우저의 데이터로 계속해요.', err),
+  );
+}
 
 /** 한글 도트 폰트(갈무리, OFL 라이선스)를 불러와요. 실패해도 기본 글꼴로 계속 돌아가요. */
 async function loadPixelFonts(): Promise<void> {

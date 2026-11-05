@@ -63,17 +63,12 @@ export class GameStore {
     private now: () => number = Date.now,
     private rng: () => number = Math.random,
   ) {
-    const saved = storage.load();
-    // 예전 형식으로 저장된 데이터에는 집중 기록과 해금이 없어서 빈 값으로 채워요.
-    this.state = {
-      tasks: saved?.tasks ?? [],
-      residents: (saved?.residents ?? []).map((r) => ({ ...r, speciesId: r.speciesId ?? null })),
-      focus: saved?.focus ?? null,
-      sessions: saved?.sessions ?? [],
-      unlocks: saved?.unlocks ?? {},
-      plans: saved?.plans ?? {},
-      lastSeenAt: saved?.lastSeenAt ?? null,
-    };
+    this.state = normalizeState(storage.load());
+  }
+
+  /** 다른 곳(클라우드 저장 등)에서 받은 데이터로 통째로 바꿔요. */
+  replaceState(saved: Partial<GameState> | null): void {
+    this.set(normalizeState(saved));
   }
 
   setCatalog(catalog: CatalogEntry[]): void {
@@ -283,6 +278,19 @@ export class LocalStorage implements Storage {
       // 저장이 막힌 브라우저(시크릿 모드 등)에서는 이번 접속 동안만 기억해요.
     }
   }
+}
+
+/** 저장된 데이터를 지금 형식에 맞게 채워요. 예전 형식에는 없는 항목이 있어서 빈 값으로 채워요. */
+export function normalizeState(saved: Partial<GameState> | null | undefined): GameState {
+  return {
+    tasks: saved?.tasks ?? [],
+    residents: (saved?.residents ?? []).map((r) => ({ ...r, speciesId: r.speciesId ?? null })),
+    focus: saved?.focus ?? null,
+    sessions: saved?.sessions ?? [],
+    unlocks: saved?.unlocks ?? {},
+    plans: saved?.plans ?? {},
+    lastSeenAt: saved?.lastSeenAt ?? null,
+  };
 }
 
 function startOfLocalDay(ms: number): number {

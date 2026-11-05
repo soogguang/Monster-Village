@@ -145,6 +145,10 @@
 | `src/rules/habits.ts` | 집중 습관 판정 (푹 몰입하기, 쉬고 돌아오기, 차곡차곡 해내기) |
 | `src/rules/catalog.ts` | catalog.json 읽기와 검사, 계열 안 후보 중 균등 확률로 주민 고르기 |
 | `src/store.ts` | 게임 데이터 저장소 (할 일, 주민, 집중 기록, 해금). 지금은 브라우저에 임시 저장, 나중에 Supabase로 교체 |
+| `src/net/supabase.ts` | Supabase 연결과 카카오 로그인. 값이 없으면 로그인 없이 이 브라우저에만 저장 |
+| `src/net/cloudSave.ts` | 내 게임 데이터를 Supabase `game_saves`에 저장·불러오기 (1.5초 모아서 저장) |
+| `src/ui/login.ts` | 로그인 화면(카카오 / 로그인 없이 해보기), 오른쪽 위 계정 표시 |
+| `supabase/migrations/` | DB 구조와 접근 규칙(RLS) SQL. Supabase SQL Editor에 붙여넣어 실행 |
 | `src/world/layout.ts` | 동네 맵 배치 (광장, 마당 세 개, 길, 울타리) |
 | `src/scenes/VillageScene.ts` | 동네 화면 그리기, 이동, 카메라 |
 | `src/scenes/textures.ts` | 임시 그림. 실제 캐릭터 그림이 오면 같은 이름(`dough-soft`, `resident-sprout` 등)으로 바꿔 끼워요 |
@@ -153,6 +157,18 @@
 | `src/ui/windows.ts` | 가운데 창 내용: 할 일 수첩(T), 달력(C), 주민 도감(B), 내 주민들(R) |
 | `src/ui/pixel.css` | 농장 도트 게임 느낌 UI 스타일 (나무 테두리, 양피지 바탕, 한글 도트 폰트 갈무리) |
 | `src/ui/format.ts` | 날짜·글자 도우미, 습관·주민 이름표 |
+
+## 데이터 저장 (Supabase)
+
+- **내 게임 데이터**(할 일, 주민, 집중 기록, 해금, 하루 계획)는 한 사람당 `game_saves` 한 줄(JSON)로 통째로 저장해요.
+  브라우저에도 계속 저장해서 인터넷이 잠깐 끊겨도 게임은 돌아가요.
+- **같이 쓰는 데이터**는 표를 나눠요: `rooms`(방), `room_members`(방 멤버), `room_tasks`(나무의 공동 할 일)
+- **모닥불(같이 집중)과 응원의 종**은 저장하지 않고 Supabase 실시간 채널로 주고받아요.
+- 접근 규칙: 내 데이터는 나만 고치고, 같은 방 사람은 구경만. 방 밖 사람에게는 안 보여요.
+  방 만들기와 초대 코드로 들어가기는 DB 함수(`create_room`, `join_room`)로만 해요.
+- 처음 로그인하면 이 브라우저에 있던 데이터를 그대로 올려요. 이미 서버에 데이터가 있으면 서버 쪽을 불러와요.
+- 연결 값: `.env.local`(내 컴퓨터) 또는 Vercel 환경 변수에 `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` (`.env.example` 참고).
+  카카오 REST API 키와 Client Secret은 코드에 넣지 않고 Supabase 대시보드에만 넣어요.
 
 ## UI 방식
 

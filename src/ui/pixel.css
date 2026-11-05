@@ -185,3 +185,12 @@ button, input, select { font: inherit; color: inherit; }
   padding: 10px 14px; white-space: pre-line; text-align: center;
 }
 #toast[hidden] { display: none; }
+
+/* 로그인 화면과 계정 표시 */
+.login-backdrop { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; background: rgba(20, 14, 10, 0.55); }
+.login-box { width: min(440px, calc(100vw - 48px)); }
+.login-box p { margin: 0 0 8px; line-height: 1.6; }
+.login-box .small { font-size: 11px; }
+.login-actions { display: grid; gap: 8px; margin: 14px 0 10px; }
+.px-btn.kakao { background: #f7d94c; color: #3b2414; text-shadow: none; box-shadow: inset var(--px) var(--px) 0 #fff0a0, inset calc(var(--px) * -1) calc(var(--px) * -1) 0 #d1b230; }
+#account { position: fixed; top: 16px; right: 16px; z-index: 5; display: flex; align-items: center; gap: 8px; padding: 6px 8px; }
