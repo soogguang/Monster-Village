@@ -73,9 +73,9 @@ export const TEMPLATE = {
   plaza: { col: 34, row: 30, cols: 28, rows: 18 },
   plazaConnector: { col: 46, row: 28, cols: 3, rows: 2 },
   anchors: {
-    guardianTree: { col: 39, row: 46 },
-    campfire: { col: 49, row: 46 },
-    bell: { col: 58, row: 45 },
+    guardianTree: { col: 39, row: 43 },
+    campfire: { col: 49, row: 41 },
+    bell: { col: 58, row: 40 },
   },
   boundsPaddingCols: 2,
   boundsPaddingRows: { top: 3, bottom: 2 },

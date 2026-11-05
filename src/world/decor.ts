@@ -160,23 +160,31 @@ export function plazaDecor(layout: VillageLayout): DecorItem[] {
   const fy = fire.row + 1;
   const bottom = plaza.row + plaza.rows;
   return [
-    // 모닥불 둘레의 그루터기 의자와 뒤쪽 벤치
+    // 중앙 모닥불과 좌석. 최대 크기에서도 의자와 돌 테두리가 겹치지 않아요.
     item('decor-stump', fx - 5, fy + 0.1), item('decor-stump', fx + 5, fy + 0.1),
     item('decor-stump', fx - 4.5, fy - 3.5), item('decor-stump', fx + 4.5, fy - 3.5),
-    item('decor-bench', anchors.guardianTree.col + 5, bottom - 0.5),
-    item('decor-bench', plaza.col + 22.5, plaza.row + 5.4),
-    // 광장 입구 옆 게시판, 양쪽 아래 등불
-    item('decor-noticeboard', plaza.col + 18.5, plaza.row + 3),
+    // 아래쪽은 나무 그늘과 꽃정원 쉼터. 가운데 3칸은 계속 열어 둬요.
+    item('decor-bench', anchors.guardianTree.col + 5, bottom - 2),
+    item('decor-picnic', anchors.guardianTree.col + 1.5, bottom - 1.6),
+    item('decor-bench', plaza.col + 20.8, bottom - 1.5),
+    item('decor-flowerbed-round', plaza.col + 25, bottom - 1.6),
+    item('decor-pot-lavender', plaza.col + 18, bottom - 1.6),
+    item('decor-bush-hydrangea', plaza.col + 25.4, bottom - 2.2),
+    item('decor-flowers-daisy', plaza.col + 25.8, bottom - 0.7),
+    // 북쪽 입구 옆의 환영 꽃밭과 게시판, 네 귀퉁이 등불
+    item('decor-flower-border', plaza.col + 17, plaza.row + 1.4),
+    item('decor-noticeboard', plaza.col + 20, plaza.row + 4.5),
     item('decor-lantern', plaza.col + 1, bottom - 0.3), item('decor-lantern', plaza.col + plaza.cols - 1, bottom - 0.3),
     item('decor-lantern', plaza.col + 1, plaza.row + 1.6), item('decor-lantern', plaza.col + plaza.cols - 1, plaza.row + 1.6),
-    // 수호나무 주변과 광장 가장자리의 꽃과 덤불
-    item('decor-bush-hydrangea', anchors.guardianTree.col - 3.8, bottom - 1.5),
-    item('decor-moss-rocks', anchors.guardianTree.col - 3.4, bottom - 0.6),
-    item('decor-flowers-daisy', anchors.guardianTree.col - 2.1, bottom - 0.5),
-    item('decor-fern', anchors.guardianTree.col - 4.5, bottom - 2.8),
-    item('decor-bush-round', plaza.col + plaza.cols - 2, plaza.row + 2),
-    item('decor-bush-blossom', plaza.col + plaza.cols - 1.6, plaza.row + 11),
+    // 수호나무 밑동에 식물을 붙여 놓고, 종 옆과 남쪽 가장자리에도 녹색 테두리를 만들어요.
+    item('decor-bush-hydrangea', anchors.guardianTree.col - 3.3, anchors.guardianTree.row + 1.2),
+    item('decor-moss-rocks', anchors.guardianTree.col - 3.8, anchors.guardianTree.row + 2),
+    item('decor-flowers-daisy', anchors.guardianTree.col - 2.2, anchors.guardianTree.row + 2.6),
+    item('decor-fern', anchors.guardianTree.col - 4, anchors.guardianTree.row + 0.6),
+    item('decor-bush-hydrangea', plaza.col + plaza.cols - 2, plaza.row + 3),
+    item('decor-bush-blossom', plaza.col + plaza.cols - 1.5, plaza.row + 9),
     item('decor-flowers-tulip', anchors.bell.col + 2.3, anchors.bell.row + 0.8),
+    ...[3, 5.25, 7.5, 24, 26.25].map((dx) => item('decor-hedge', plaza.col + dx, bottom - 0.1)),
   ];
 }
 
