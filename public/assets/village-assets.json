@@ -1,0 +1,437 @@
+{
+  "status": "approved-art-runtime-integration-pending",
+  "tile_size": 32,
+  "character_frame": [
+    64,
+    72
+  ],
+  "orientation": "yards-north-exit-south-plaza-south",
+  "assets": [
+    {
+      "name": "수호나무",
+      "file": "objects/guardian-tree.png",
+      "size": [
+        192,
+        256
+      ],
+      "alpha": "binary",
+      "texture_key": "pledge-tree",
+      "notes": "192×256; 공동 할 일 나무, 바닥 중심 기준",
+      "anchor": [
+        0.5,
+        1
+      ]
+    },
+    {
+      "name": "청록 지붕 집",
+      "file": "objects/house-teal.png",
+      "size": [
+        160,
+        160
+      ],
+      "alpha": "binary",
+      "texture_key": "house-teal",
+      "anchor": [
+        0.5,
+        1
+      ]
+    },
+    {
+      "name": "적갈 지붕 집",
+      "file": "objects/house-clay.png",
+      "size": [
+        160,
+        160
+      ],
+      "alpha": "binary",
+      "texture_key": "house-clay",
+      "anchor": [
+        0.5,
+        1
+      ]
+    },
+    {
+      "name": "응원의 종",
+      "file": "objects/cheering-bell.png",
+      "size": [
+        96,
+        128
+      ],
+      "alpha": "binary",
+      "texture_key": "bell",
+      "anchor": [
+        0.5,
+        1
+      ]
+    },
+    {
+      "name": "모닥불 프레임 1",
+      "file": "objects/campfire-01.png",
+      "size": [
+        128,
+        128
+      ],
+      "alpha": "binary",
+      "texture_key": "campfire-01",
+      "anchor": [
+        0.5,
+        1
+      ]
+    },
+    {
+      "name": "모닥불 프레임 2",
+      "file": "objects/campfire-02.png",
+      "size": [
+        128,
+        128
+      ],
+      "alpha": "binary",
+      "texture_key": "campfire-02",
+      "anchor": [
+        0.5,
+        1
+      ]
+    },
+    {
+      "name": "말랑 반죽",
+      "file": "characters/dough-soft.png",
+      "size": [
+        64,
+        72
+      ],
+      "alpha": "binary",
+      "texture_key": "dough-soft",
+      "anchor": [
+        0.5,
+        1
+      ]
+    },
+    {
+      "name": "심술 반죽",
+      "file": "characters/dough-grumpy.png",
+      "size": [
+        64,
+        72
+      ],
+      "alpha": "binary",
+      "texture_key": "dough-grumpy",
+      "anchor": [
+        0.5,
+        1
+      ]
+    },
+    {
+      "name": "찐 몬스터",
+      "file": "characters/dough-monster.png",
+      "size": [
+        64,
+        72
+      ],
+      "alpha": "binary",
+      "texture_key": "dough-monster",
+      "anchor": [
+        0.5,
+        1
+      ]
+    },
+    {
+      "name": "내 캐릭터 정면",
+      "file": "characters/player-front.png",
+      "size": [
+        64,
+        72
+      ],
+      "alpha": "binary",
+      "texture_key": "player",
+      "anchor": [
+        0.5,
+        1
+      ]
+    },
+    {
+      "name": "내 캐릭터 뒷모습",
+      "file": "characters/player-back.png",
+      "size": [
+        64,
+        72
+      ],
+      "alpha": "binary",
+      "texture_key": "player-back",
+      "anchor": [
+        0.5,
+        1
+      ]
+    },
+    {
+      "name": "풀 바닥 A",
+      "file": "terrain/grass-01.png",
+      "size": [
+        32,
+        32
+      ],
+      "alpha": "binary",
+      "texture_key": "grass-01",
+      "anchor": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "풀 바닥 B",
+      "file": "terrain/grass-02.png",
+      "size": [
+        32,
+        32
+      ],
+      "alpha": "binary",
+      "texture_key": "grass-02",
+      "anchor": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "클로버 풀",
+      "file": "terrain/grass-03.png",
+      "size": [
+        32,
+        32
+      ],
+      "alpha": "binary",
+      "texture_key": "grass-03",
+      "anchor": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "꽃이 있는 풀",
+      "file": "terrain/grass-04.png",
+      "size": [
+        32,
+        32
+      ],
+      "alpha": "binary",
+      "texture_key": "grass-04",
+      "anchor": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "흙길",
+      "file": "terrain/dirt.png",
+      "size": [
+        32,
+        32
+      ],
+      "alpha": "binary",
+      "texture_key": "dirt",
+      "anchor": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "돌바닥",
+      "file": "terrain/stone.png",
+      "size": [
+        32,
+        32
+      ],
+      "alpha": "binary",
+      "texture_key": "stone",
+      "anchor": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "가로 울타리",
+      "file": "terrain/fence-h.png",
+      "size": [
+        32,
+        32
+      ],
+      "alpha": "binary",
+      "texture_key": "fence-h",
+      "notes": "32픽셀 반복 배치용; 가로/세로 접합은 tile preview 참고",
+      "anchor": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "세로 울타리",
+      "file": "terrain/fence-v.png",
+      "size": [
+        32,
+        32
+      ],
+      "alpha": "binary",
+      "texture_key": "fence-v",
+      "notes": "32픽셀 반복 배치용; 가로/세로 접합은 tile preview 참고",
+      "anchor": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "울타리 모서리",
+      "file": "terrain/fence-corner.png",
+      "size": [
+        32,
+        32
+      ],
+      "alpha": "binary",
+      "texture_key": "fence-corner",
+      "notes": "32픽셀 반복 배치용; 가로/세로 접합은 tile preview 참고",
+      "anchor": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "흙길 n 가장자리",
+      "file": "terrain/dirt-edge-n.png",
+      "size": [
+        32,
+        32
+      ],
+      "alpha": "binary",
+      "notes": "선택용 투명 오버레이; 풀 위에 그립니다",
+      "anchor": [
+        0,
+        0
+      ],
+      "texture_key": "dirt-edge-n"
+    },
+    {
+      "name": "흙길 s 가장자리",
+      "file": "terrain/dirt-edge-s.png",
+      "size": [
+        32,
+        32
+      ],
+      "alpha": "binary",
+      "notes": "선택용 투명 오버레이; 풀 위에 그립니다",
+      "anchor": [
+        0,
+        0
+      ],
+      "texture_key": "dirt-edge-s"
+    },
+    {
+      "name": "흙길 e 가장자리",
+      "file": "terrain/dirt-edge-e.png",
+      "size": [
+        32,
+        32
+      ],
+      "alpha": "binary",
+      "notes": "선택용 투명 오버레이; 풀 위에 그립니다",
+      "anchor": [
+        0,
+        0
+      ],
+      "texture_key": "dirt-edge-e"
+    },
+    {
+      "name": "흙길 w 가장자리",
+      "file": "terrain/dirt-edge-w.png",
+      "size": [
+        32,
+        32
+      ],
+      "alpha": "binary",
+      "notes": "선택용 투명 오버레이; 풀 위에 그립니다",
+      "anchor": [
+        0,
+        0
+      ],
+      "texture_key": "dirt-edge-w"
+    },
+    {
+      "name": "흙길 nw 모서리",
+      "file": "terrain/dirt-corner-nw.png",
+      "size": [
+        32,
+        32
+      ],
+      "alpha": "binary",
+      "notes": "선택용 투명 오버레이; 풀 위에 그립니다",
+      "anchor": [
+        0,
+        0
+      ],
+      "texture_key": "dirt-corner-nw"
+    },
+    {
+      "name": "흙길 ne 모서리",
+      "file": "terrain/dirt-corner-ne.png",
+      "size": [
+        32,
+        32
+      ],
+      "alpha": "binary",
+      "notes": "선택용 투명 오버레이; 풀 위에 그립니다",
+      "anchor": [
+        0,
+        0
+      ],
+      "texture_key": "dirt-corner-ne"
+    },
+    {
+      "name": "흙길 sw 모서리",
+      "file": "terrain/dirt-corner-sw.png",
+      "size": [
+        32,
+        32
+      ],
+      "alpha": "binary",
+      "notes": "선택용 투명 오버레이; 풀 위에 그립니다",
+      "anchor": [
+        0,
+        0
+      ],
+      "texture_key": "dirt-corner-sw"
+    },
+    {
+      "name": "흙길 se 모서리",
+      "file": "terrain/dirt-corner-se.png",
+      "size": [
+        32,
+        32
+      ],
+      "alpha": "binary",
+      "notes": "선택용 투명 오버레이; 풀 위에 그립니다",
+      "anchor": [
+        0,
+        0
+      ],
+      "texture_key": "dirt-corner-se"
+    }
+  ],
+  "animation": {
+    "campfire": {
+      "frames": [
+        "objects/campfire-01.png",
+        "objects/campfire-02.png"
+      ],
+      "frame_ms": 250,
+      "loop": true,
+      "base_fixed_from_y": 62,
+      "runtime_key": "campfire"
+    }
+  },
+  "schema_version": 1,
+  "file_base_url": "/assets/",
+  "layout_handoff_repo_path": "design/village/layout-template.json",
+  "runtime_texture_aliases": {
+    "grass-0": "grass-01",
+    "grass-1": "grass-02",
+    "grass-2": "grass-03",
+    "grass-3": "grass-04",
+    "campfire": "campfire-01"
+  }
+}

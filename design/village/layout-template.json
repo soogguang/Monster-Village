@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "status": "layout-reference-not-connected-to-game",
+  "tileSize": 32,
+  "maxYards": null,
+  "orientation": "yards-north-exit-south-plaza-south",
+  "yard": {
+    "origin": { "col": 34, "row": 3 },
+    "cols": 28,
+    "rows": 22,
+    "strideCols": 32,
+    "gate": { "side": "south", "offsetCols": 12, "cols": 3 },
+    "houseOffset": { "col": 14, "row": 7 },
+    "houseTextures": ["house-teal", "house-clay"]
+  },
+  "expansion": {
+    "axis": "horizontal",
+    "slotSequence": "0, 1, -1, 2, -2, ...",
+    "identity": "userId within one room",
+    "preserveAssignmentsOnLeave": true,
+    "boundsPaddingCols": 2
+  },
+  "mainStreet": { "row": 25, "rows": 3 },
+  "plaza": { "col": 36, "row": 30, "cols": 24, "rows": 12 },
+  "plazaConnector": { "col": 46, "row": 28, "cols": 3, "rows": 2 },
+  "plazaAnchors": {
+    "guardianTree": { "col": 42, "row": 39 },
+    "campfire": { "col": 49, "row": 40 },
+    "bell": { "col": 56, "row": 39 }
+  },
+  "bounds": { "row": 0, "rows": 44 },
+  "notes": [
+    "멤버 전체에 마당 템플릿을 반복 배치합니다. 컨셉 그림의 집 3개는 인원 제한이 아닙니다.",
+    "집·광장 좌표는 유지하고 좌우 길과 월드 범위를 확장합니다.",
+    "슬롯 배정은 방별로 보관하며, 모든 사용자가 같은 userId를 같은 마당으로 봐야 합니다.",
+    "음수 col을 허용합니다. 배열 인덱스는 col - bounds.col로 계산합니다.",
+    "사물과 건물을 뒤집지 않고 구역 배치만 바꿉니다.",
+    "큰 그림 전체를 충돌 영역으로 막지 말고 밑동·벽·기둥과 문 위치를 따로 정합니다."
+  ]
+}
