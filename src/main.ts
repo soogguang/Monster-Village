@@ -19,7 +19,7 @@ store.setCatalog(await loadCatalog());
 const worldAssets = await loadWorldAssets();
 await loadPixelFonts();
 const account = await connectAccount();
-mountHud(store, CHARACTER_DIR);
+const hud = mountHud(store, CHARACTER_DIR);
 void connectRooms(account);
 
 /** 로그인했으면 친구 방에 이어요. 개발 서버에서 ?demo-room 을 붙이면 가짜 친구로 화면을 확인할 수 있어요. */
@@ -112,5 +112,5 @@ new Phaser.Game({
   backgroundColor: '#1d1b2a',
   physics: { default: 'arcade' },
   scale: { mode: Phaser.Scale.RESIZE },
-  scene: [new VillageScene(store, CHARACTER_DIR, worldAssets)],
+  scene: [new VillageScene(store, CHARACTER_DIR, worldAssets, hud)],
 });

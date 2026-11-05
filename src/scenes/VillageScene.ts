@@ -10,6 +10,7 @@ import { doughStage, type DoughStage, type Task } from '../rules/task';
 import type { GameState, GameStore, Resident } from '../store';
 import { buildTiles, createVillageLayout, withMinWidth, type Rect, type Spot, type VillageLayout, type YardPlan } from '../world/layout';
 import { MEADOW_TILES, grassTileAt, villageDecor, worldBlocks } from '../world/decor';
+import { LANDMARK_TEXT, canInteract, landmarkTargets, nearbyLandmark, type LandmarkId, type LandmarkTarget, type VillageActions } from '../world/interactions';
 import { makePlaceholderTextures } from './textures';
 
 const T = TILE_SIZE;
@@ -46,6 +47,8 @@ type MoveKeys = Record<'up' | 'down' | 'left' | 'right' | 'w' | 'a' | 's' | 'd',
 export class VillageScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Image;
   private keys!: MoveKeys;
+  private interactionKey!: Phaser.Input.Keyboard.Key;
+  private landmarks: LandmarkTarget[] = [];
   private labels: Phaser.GameObjects.Text[] = [];
   private pixelScale = pickPixelScale(window.innerHeight);
 
@@ -71,6 +74,7 @@ export class VillageScene extends Phaser.Scene {
     private store: GameStore,
     private characterDir: string,
     private worldAssets: WorldAsset[],
+    private hud: VillageActions,
   ) {
     super('village');
   }
@@ -109,6 +113,7 @@ export class VillageScene extends Phaser.Scene {
     const kb = this.input.keyboard!;
     const key = (k: string) => kb.addKey(k, false);
     this.keys = { up: key('UP'), down: key('DOWN'), left: key('LEFT'), right: key('RIGHT'), w: key('W'), a: key('A'), s: key('S'), d: key('D') };
+    this.interactionKey = key('E');
 
     this.refreshLayout();
     const unsubscribeRoom = roomView.subscribe((rs) => {
@@ -116,17 +121,17 @@ export class VillageScene extends Phaser.Scene {
       this.renderRoom(rs);
     });
     const unsubscribe = this.store.subscribe((s) => this.render(s));
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => { unsubscribeRoom(); unsubscribe(); });
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => { unsubscribeRoom(); unsubscribe(); this.hud.setNearby(null); });
     this.time.addEvent({ delay: 1000, loop: true, callback: () => this.render(this.store.get()) });
   }
 
   update(): void {
     const body = this.player.body as Phaser.Physics.Arcade.Body;
     // 입력창에 글자를 치거나 창이 열려 있으면 캐릭터가 움직이지 않아요.
-    const typing =
-      document.activeElement instanceof HTMLInputElement ||
-      document.activeElement instanceof HTMLSelectElement ||
-      document.body.dataset.modal === 'open';
+    const active = document.activeElement;
+    const typing = document.body.dataset.modal === 'open' || (active instanceof HTMLElement && (active.matches('input, select, textarea') || active.isContentEditable));
+    // 창이나 입력칸에서 누른 E가 나중에 사물을 여는 일은 없도록 매 프레임 소비해요.
+    const pressed = Phaser.Input.Keyboard.JustDown(this.interactionKey);
     const k = this.keys;
     const dx = typing ? 0 : Number(k.right.isDown || k.d.isDown) - Number(k.left.isDown || k.a.isDown);
     const dy = typing ? 0 : Number(k.down.isDown || k.s.isDown) - Number(k.up.isDown || k.w.isDown);
@@ -137,6 +142,12 @@ export class VillageScene extends Phaser.Scene {
     if (dy < 0 && this.textures.exists('player-back')) this.player.setTexture('player-back');
     else if (dy > 0 || dx !== 0) this.player.setTexture('player');
     this.player.setDepth(this.player.y);
+    const nearby = typing ? null : nearbyLandmark({ col: this.player.x / T, row: this.player.y / T }, this.landmarks);
+    this.hud.setNearby(nearby?.id ?? null);
+    if (pressed && nearby && !this.interactionKey.ctrlKey && !this.interactionKey.metaKey && !this.interactionKey.altKey) {
+      body.setVelocity(0, 0);
+      this.hud.interact(nearby.id);
+    }
   }
 
   // ---------------------------------------------------------------- 마을 짓기
@@ -168,6 +179,7 @@ export class VillageScene extends Phaser.Scene {
 
   private buildWorld(): void {
     this.destroyWorld();
+    this.landmarks = landmarkTargets(this.layout);
     const { bounds } = this.layout;
     const tiles = buildTiles(this.layout);
     const things: Phaser.GameObjects.GameObject[] = [];
@@ -211,13 +223,16 @@ export class VillageScene extends Phaser.Scene {
     // 광장: 수호나무(공동 할 일), 모닥불(같이 집중), 응원의 종
     const { guardianTree, campfire, bell } = this.layout.anchors;
     const tree = this.placeObject(guardianTree, 'pledge-tree');
+    this.enableLandmark(tree, 'tree');
     this.treeLabel = this.plazaLabel(tree.x, tree.y + 4, '수호나무');
 
     this.campfire = this.add.sprite(...spotXY(campfire), 'campfire-01').setOrigin(0.5, 1).play('campfire-burn');
     this.campfire.setDepth(this.campfire.y);
+    this.enableLandmark(this.campfire, 'campfire');
     this.campfireLabel = this.plazaLabel(this.campfire.x, this.campfire.y + 4, '모닥불');
 
     const bellObj = this.placeObject(bell, 'bell');
+    this.enableLandmark(bellObj, 'bell');
     const bellLabel = this.plazaLabel(bellObj.x, bellObj.y + 4, '응원의 종');
     things.push(tree, this.campfire, bellObj, this.treeLabel, this.campfireLabel, bellLabel);
 
@@ -236,6 +251,7 @@ export class VillageScene extends Phaser.Scene {
   }
 
   private destroyWorld(): void {
+    this.hud.setNearby(null);
     if (!this.world) return;
     for (const c of this.world.colliders) c.destroy();
     this.world.map.destroy();
@@ -270,6 +286,22 @@ export class VillageScene extends Phaser.Scene {
   private placeObject(spot: Spot, key: string): Phaser.GameObjects.Image {
     const [x, y] = spotXY(spot);
     return this.add.image(x, y, key).setOrigin(0.5, 1).setDepth(y);
+  }
+
+  /** 그림의 투명 여백은 클릭에서 빼고, 가까이 다가왔을 때만 기능을 열어요. */
+  private enableLandmark(sprite: Phaser.GameObjects.Image | Phaser.GameObjects.Sprite, id: LandmarkId): void {
+    sprite.setInteractive({ pixelPerfect: true, alphaTolerance: 1, useHandCursor: true });
+    sprite.on('pointerdown', () => {
+      if (document.body.dataset.modal === 'open') return;
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+      const target = this.landmarks.find((candidate) => candidate.id === id);
+      if (!target || !canInteract({ col: this.player.x / T, row: this.player.y / T }, target)) {
+        this.hud.notify(`${LANDMARK_TEXT[id].name} 가까이 다가가 주세요.`);
+        return;
+      }
+      (this.player.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
+      this.hud.interact(id);
+    });
   }
 
   /** 보이지 않는 부딪힘 상자 (가운데 x, y 기준) */

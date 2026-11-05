@@ -5,9 +5,10 @@ import type { HabitId } from '../rules/habits';
 import type { CompleteResult, GameStore } from '../store';
 import { HABIT_TEXT, RESIDENT_TEXT, escapeHtml, formatClock, formatElapsed, heartsText } from './format';
 import { roomView } from '../net/rooms';
-import { WINDOWS, type GameWindow, type WindowContext } from './windows';
+import { LANDMARK_TEXT, type LandmarkId, type VillageActions } from '../world/interactions';
+import { WINDOWS, bellWindow, focusWindow, treeWindow, type GameWindow, type WindowContext } from './windows';
 
-export function mountHud(store: GameStore, characterDir: string): void {
+export function mountHud(store: GameStore, characterDir: string): VillageActions {
   document.body.insertAdjacentHTML(
     'beforeend',
     `
@@ -19,6 +20,8 @@ export function mountHud(store: GameStore, characterDir: string): void {
     <nav id="toolbar" class="px-box" aria-label="메뉴">
       ${WINDOWS.map((w) => `<button class="px-btn tool" data-window="${w.id}" title="${w.label} (${w.key})"><span class="icon">${w.icon}</span>${w.label}<kbd>${w.key}</kbd></button>`).join('')}
     </nav>
+    <p id="movement-help">방향키 / WASD로 이동 · 사물 가까이에서 E</p>
+    <button id="world-interaction" class="px-btn" hidden></button>
     <div id="modal-backdrop" hidden>
       <section class="window px-box" role="dialog" aria-modal="true">
         <div class="window-title"></div>
@@ -35,6 +38,14 @@ export function mountHud(store: GameStore, characterDir: string): void {
   const toastEl = document.getElementById('toast')!;
   let openId: string | null = null;
   let unmount: (() => void) | null = null;
+  let nearby: LandmarkId | null = null;
+  const interactionButton = document.getElementById('world-interaction')!;
+  const movementHelp = document.getElementById('movement-help')!;
+  const renderInteraction = () => {
+    interactionButton.hidden = nearby === null || openId !== null;
+    movementHelp.hidden = nearby !== null || openId !== null;
+    if (nearby) interactionButton.textContent = `E · ${LANDMARK_TEXT[nearby].name} · ${LANDMARK_TEXT[nearby].action}`;
+  };
 
   const toast = (text: string) => {
     toastEl.textContent = text;
@@ -52,6 +63,8 @@ export function mountHud(store: GameStore, characterDir: string): void {
       const unlocks = store.get().focus?.taskId === taskId ? store.stopFocus() : store.startFocus(taskId);
       if (unlocks.length) toast(unlockMessage(unlocks));
     },
+    openWindow: (id) => { const w = WINDOWS.find((candidate) => candidate.id === id); if (w) open(w); },
+    closeWindow: () => close(),
   };
 
   const open = (w: GameWindow) => {
@@ -68,6 +81,7 @@ export function mountHud(store: GameStore, characterDir: string): void {
     unmount = w.mount(content, ctx);
     windowBody.scrollTop = 0;
     renderToolbar();
+    renderInteraction();
   };
   const close = () => {
     unmount?.();
@@ -77,6 +91,7 @@ export function mountHud(store: GameStore, characterDir: string): void {
     windowBody.replaceChildren();
     delete document.body.dataset.modal;
     renderToolbar();
+    renderInteraction();
   };
   const renderToolbar = () =>
     document.querySelectorAll<HTMLButtonElement>('#toolbar [data-window]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.window === openId)));
@@ -90,12 +105,17 @@ export function mountHud(store: GameStore, characterDir: string): void {
     if (e.target === backdrop || (e.target as HTMLElement).closest('.window-close')) close();
   });
   window.addEventListener('keydown', (e) => {
+    if (e.repeat) return;
     if (e.key === 'Escape' && openId) return close();
-    const typing = e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement;
+    const typing = e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement || e.target instanceof HTMLTextAreaElement || (e.target instanceof HTMLElement && e.target.isContentEditable);
     if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
     const w = WINDOWS.find((x) => x.key === e.key.toUpperCase());
     if (w) open(w);
   });
+
+  const interactionWindows: Record<LandmarkId, GameWindow> = { tree: treeWindow, campfire: focusWindow, bell: bellWindow };
+  const interact = (id: LandmarkId) => open(interactionWindows[id]);
+  interactionButton.addEventListener('click', () => { if (nearby) interact(nearby); });
 
   // ----- 왼쪽 위 상태 상자: 시계, 지금 상태, 집중 시작·끝 -----
   status.addEventListener('click', (e) => {
@@ -167,6 +187,11 @@ export function mountHud(store: GameStore, characterDir: string): void {
   beat();
   window.setInterval(beat, 30 * 1000);
   document.addEventListener('visibilitychange', beat);
+  return {
+    interact,
+    notify: toast,
+    setNearby: (id) => { if (nearby !== id) { nearby = id; renderInteraction(); } },
+  };
 }
 
 function birthMessage({ resident: r, species, newUnlocks, isNew, stageUp }: CompleteResult): string {

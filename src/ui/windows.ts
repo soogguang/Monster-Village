@@ -18,6 +18,10 @@ export interface WindowContext {
   /** 할 일을 끝냈을 때 알림 문구 */
   completeTask(taskId: string): void;
   toggleFocus(taskId: string): void;
+  openWindow(id: string): void;
+  closeWindow(): void;
+  /** 광장 사물에서 열면 해당 내용만 보여줘요. */
+  roomSection?: 'tree' | 'members';
 }
 
 export interface GameWindow {
@@ -485,12 +489,44 @@ function residentKindText(r: Resident): string {
   return r.kind === 'sprout' && r.rare ? '✨ 희귀 새싹' : RESIDENT_TEXT[r.kind];
 }
 
+// ---------------------------------------------------------------- 모닥불 (집중)
+
+export const focusWindow: GameWindow = {
+  id: 'focus', title: '모닥불 · 집중하기', icon: '🔥', key: '', label: '집중',
+  mount(body, ctx) {
+    const render = () => {
+      const state = ctx.store.get();
+      const active = state.tasks.filter((t) => t.completedAt === undefined);
+      const room = roomView.state.active;
+      body.innerHTML = `<p class="muted">${room ? `${escapeHtml(room.name)}에서 ${roomView.focusingCount()}명이 함께 집중하고 있어요.` : '내 할 일에 집중하며 잠시 머물러요.'}</p>
+        ${active.length ? active.map((task) => `<div class="slot ${state.focus?.taskId === task.id ? 'focusing' : ''}"><div class="row">
+          <strong class="grow">${escapeHtml(task.title)}</strong>
+          <button class="px-btn small ${state.focus?.taskId === task.id ? 'red' : 'green'}" data-focus-id="${escapeHtml(task.id)}">${state.focus?.taskId === task.id ? '집중 끝내기' : '집중 시작'}</button>
+        </div></div>`).join('') : '<div class="empty">집중할 할 일을 먼저 등록해 주세요.</div><button class="px-btn green" data-act="add-task">할 일 등록하러 가기</button>'}`;
+    };
+    body.addEventListener('click', (e) => {
+      const button = (e.target as HTMLElement).closest<HTMLElement>('[data-focus-id],[data-act]');
+      if (!button) return;
+      if (button.dataset.act === 'add-task') { ctx.openWindow('tasks'); return; }
+      if (button.dataset.focusId) {
+        try { ctx.toggleFocus(button.dataset.focusId); ctx.closeWindow(); }
+        catch (err) { ctx.toast((err as Error).message); }
+      }
+    });
+    render();
+    const offStore = ctx.store.subscribe(render);
+    const offRoom = roomView.subscribe(render);
+    return () => { offStore(); offRoom(); };
+  },
+};
+
 // ---------------------------------------------------------------- 방 (친구와 함께)
 
 export const roomsWindow: GameWindow = {
   id: 'rooms', title: '우리 방', icon: '🏕️', key: 'G', label: '방',
   mount(body, ctx) {
     let mode: 'none' | 'create' | 'join' = 'none';
+    const section = ctx.roomSection;
 
     const render = (rs: RoomViewState) => {
       if (!rs.backend) {
@@ -519,7 +555,7 @@ export const roomsWindow: GameWindow = {
         const state = p?.focusingOn ? `🔥 집중 중 · ${escapeHtml(p.focusingOn)}` : p ? '🟢 접속 중' : '⚪ 오프라인';
         const residents = (m.save?.residents ?? []).length;
         return `<div class="slot"><div class="row"><strong class="grow">${escapeHtml(m.nickname)}${m.userId === me ? ' (나)' : ''}</strong>
-          ${m.userId === me ? '' : `<button class="px-btn small ghost" data-act="bell" data-id="${m.userId}" title="응원의 종 치기">🔔</button>`}</div>
+          ${m.userId === me ? '' : `<button class="px-btn small ghost" data-act="bell" data-id="${m.userId}" title="응원의 종 치기">${section === 'members' ? '🔔 응원하기' : '🔔'}</button>`}</div>
           <div class="meta">${state} · 주민 ${residents}명</div></div>`;
       }).join('');
       const tasks = [...rs.tasks].sort((a, b) => Number(a.doneAt !== null) - Number(b.doneAt !== null) || (a.dueAt ?? Infinity) - (b.dueAt ?? Infinity));
@@ -540,13 +576,14 @@ export const roomsWindow: GameWindow = {
           <button class="px-btn small ghost" data-act="copy" data-code="${room.inviteCode}">복사</button>
           <button class="px-btn small ghost" data-act="leave">방 나가기</button>
         </div>
-        <div class="room-layout">
-          <div><h3>👥 멤버 (🔥 ${rs.online.filter((p) => p.focusingOn).length}명 집중 중)</h3>${members}</div>
-          <div><h3>🌳 나무 · 공동 할 일</h3>
+        ${section === 'members' ? '<p class="muted">응원을 보낼 친구를 골라 주세요.</p>' : ''}
+        <div class="room-layout ${section ? 'single' : ''}">
+          ${section !== 'tree' ? `<div><h3>👥 멤버 (🔥 ${rs.online.filter((p) => p.focusingOn).length}명 집중 중)</h3>${members}</div>` : ''}
+          ${section !== 'members' ? `<div><h3>🌳 나무 · 공동 할 일</h3>
             <form class="room-task slot row"><input class="px-input grow" name="title" maxlength="40" placeholder="같이 할 일 (예: 발표 자료)" required />
               <input class="px-input" name="due" type="date" title="마감일 (선택)" /><button class="px-btn small green">걸기</button></form>
             ${tree}
-          </div>
+          </div>` : ''}
         </div>`;
     };
 
@@ -609,6 +646,16 @@ export const roomsWindow: GameWindow = {
     render(roomView.state);
     return roomView.subscribe(render);
   },
+};
+
+export const treeWindow: GameWindow = {
+  ...roomsWindow, id: 'tree', title: '수호나무 · 공동 할 일', icon: '🌳', key: '',
+  mount: (body, ctx) => roomsWindow.mount(body, { ...ctx, roomSection: 'tree' }),
+};
+
+export const bellWindow: GameWindow = {
+  ...roomsWindow, id: 'bell', title: '응원의 종', icon: '🔔', key: '',
+  mount: (body, ctx) => roomsWindow.mount(body, { ...ctx, roomSection: 'members' }),
 };
 
 export const WINDOWS: GameWindow[] = [tasksWindow, calendarWindow, dexWindow, residentsWindow, roomsWindow];

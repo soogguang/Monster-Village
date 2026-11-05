@@ -91,7 +91,12 @@ describe('동네 맵', () => {
     const rects = [...layout.yards.map((y) => y.rect), layout.plaza];
     const hit = (a: (typeof rects)[number], b: (typeof rects)[number]) =>
       a.col < b.col + b.cols && b.col < a.col + a.cols && a.row < b.row + b.rows && b.row < a.row + a.rows;
-    for (let i = 0; i < rects.length; i++) for (let j = i + 1; j < rects.length; j++) expect(hit(rects[i], rects[j])).toBe(false);
+    // 모든 쌍은 검사하되, 50만 번의 assertion 때문에 느린 환경에서 시간 초과가 나지 않게 해요.
+    const collisions: number[][] = [];
+    for (let i = 0; i < rects.length; i++) for (let j = i + 1; j < rects.length; j++) {
+      if (hit(rects[i], rects[j])) collisions.push([i, j]);
+    }
+    expect(collisions).toEqual([]);
   });
 
   it('맵이 좁으면 양옆 풀밭만 넓히고, 길·마당·광장은 그대로예요', () => {

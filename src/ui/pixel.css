@@ -101,6 +101,14 @@ button, input, select { font: inherit; color: inherit; }
 #toolbar .tool kbd { font: inherit; font-size: 9px; opacity: 0.85; }
 
 /* ---------- 가운데 창 ---------- */
+#movement-help, #world-interaction {
+  position: fixed; left: 50%; bottom: 116px; transform: translateX(-50%); z-index: 5;
+  max-width: calc(100vw - 32px); margin: 0; text-align: center;
+}
+#movement-help { padding: 5px 9px; color: var(--paper-light); background: #2b2433cc; font-size: 11px; pointer-events: none; }
+#world-interaction[hidden], #movement-help[hidden] { display: none; }
+.room-layout.single { grid-template-columns: minmax(0, 1fr); }
+
 #modal-backdrop {
   position: fixed; inset: 0; z-index: 20; display: grid; place-items: center;
   background: rgba(20, 14, 10, 0.45);
