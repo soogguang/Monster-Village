@@ -61,7 +61,7 @@ export const TEMPLATE = {
     rows: 22,
     strideCols: 32,
     gate: { offsetCols: 12, cols: 3 },
-    houseOffset: { col: 14, row: 7 },
+    houseOffset: { col: 14, row: 10 },
     houseTextures: ['house-teal', 'house-clay'],
   },
   /** 마당 줄 하나의 높이: 마당 22 + 가로길 3 + 풀밭 3 */
@@ -70,12 +70,12 @@ export const TEMPLATE = {
   /** 광장 양옆 세로길 (마당 사이 4칸 틈 중 3칸) */
   avenueCols: [30, 62],
   roadCols: 3,
-  plaza: { col: 36, row: 30, cols: 24, rows: 12 },
+  plaza: { col: 34, row: 30, cols: 28, rows: 18 },
   plazaConnector: { col: 46, row: 28, cols: 3, rows: 2 },
   anchors: {
-    guardianTree: { col: 42, row: 39 },
-    campfire: { col: 49, row: 40 },
-    bell: { col: 56, row: 39 },
+    guardianTree: { col: 39, row: 46 },
+    campfire: { col: 49, row: 46 },
+    bell: { col: 58, row: 45 },
   },
   boundsPaddingCols: 2,
   boundsPaddingRows: { top: 3, bottom: 2 },
@@ -266,8 +266,8 @@ export interface TileGrid {
   bounds: Rect;
 }
 
-/** 집 그림의 크기(타일). 160×160 그림 = 5×5칸 */
-export const HOUSE_TILES = 5;
+/** 집 그림의 크기(타일). 320×320 그림 = 10×10칸 */
+export const HOUSE_TILES = 10;
 
 export function buildTiles(layout: VillageLayout): TileGrid {
   const { bounds } = layout;
@@ -286,6 +286,8 @@ export function buildTiles(layout: VillageLayout): TileGrid {
 
   for (const yard of layout.yards) {
     const { col, row, cols, rows } = yard.rect;
+    // 큰 집 앞에는 작은 돌 테라스를 두고, 그 가운데에서 남쪽 길이 시작돼요.
+    fill({ col: yard.house.col - HOUSE_TILES / 2, row: yard.house.row + 1, cols: HOUSE_TILES, rows: 2 }, 'stone');
     // 집 앞에서 남쪽 문까지 흙길
     const houseBottomRow = yard.house.row;
     fill({ col: yard.gate.col, row: houseBottomRow + 1, cols: yard.gate.cols, rows: yard.gate.row - houseBottomRow }, 'dirt');

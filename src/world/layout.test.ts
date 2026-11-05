@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { assignSlots, buildTiles, cellAt, createVillageLayout, isBlocked, slotAt, withMinWidth, type VillageLayout } from './layout';
+import { HOUSE_TILES, assignSlots, buildTiles, cellAt, createVillageLayout, isBlocked, slotAt, withMinWidth, type VillageLayout } from './layout';
 
 /** 막힌 타일을 피해서 from에서 to까지 걸어갈 수 있는지 확인해요. (집·광장 물건은 화면 쪽 충돌이라 여기서는 울타리만 봐요) */
 function reachable(layout: VillageLayout, from: [number, number], to: [number, number]): boolean {
@@ -41,6 +41,16 @@ describe('자리 배정', () => {
 });
 
 describe('동네 맵', () => {
+  it('큰 집이 마당 안에 들어가고 테라스와 남쪽 길이 이어져요', () => {
+    const layout = createVillageLayout(['me']);
+    const yard = layout.yards[0];
+    expect(yard.house.row + 1 - HOUSE_TILES).toBeGreaterThan(yard.rect.row);
+    const { ground, bounds } = buildTiles(layout);
+    const at = (col: number, row: number) => ground[row - bounds.row][col - bounds.col];
+    expect(at(yard.house.col - 3, yard.house.row + 1)).toBe('stone');
+    expect(at(yard.gate.col + 1, yard.house.row + 1)).toBe('dirt');
+    expect(at(yard.gate.col + 1, yard.gate.row)).toBe('dirt');
+  });
   it('혼자일 때도 광장에서 내 마당 안쪽까지 걸어갈 수 있어요', () => {
     const layout = createVillageLayout(['me']);
     const yard = layout.yards[0];

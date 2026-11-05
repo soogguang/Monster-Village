@@ -1,5 +1,5 @@
 {
-  "status": "approved-art-runtime-integration-pending",
+  "status": "runtime-integrated",
   "tile_size": 32,
   "character_frame": [
     64,
@@ -11,12 +11,12 @@
       "name": "수호나무",
       "file": "objects/guardian-tree.png",
       "size": [
-        192,
-        256
+        384,
+        512
       ],
       "alpha": "binary",
       "texture_key": "pledge-tree",
-      "notes": "192×256; 공동 할 일 나무, 바닥 중심 기준",
+      "notes": "384×512; 공동 할 일 수호나무, 바닥 중심 기준",
       "anchor": [
         0.5,
         1
@@ -26,8 +26,8 @@
       "name": "청록 지붕 집",
       "file": "objects/house-teal.png",
       "size": [
-        160,
-        160
+        320,
+        320
       ],
       "alpha": "binary",
       "texture_key": "house-teal",
@@ -40,8 +40,8 @@
       "name": "적갈 지붕 집",
       "file": "objects/house-clay.png",
       "size": [
-        160,
-        160
+        320,
+        320
       ],
       "alpha": "binary",
       "texture_key": "house-clay",
@@ -54,8 +54,8 @@
       "name": "응원의 종",
       "file": "objects/cheering-bell.png",
       "size": [
-        96,
-        128
+        144,
+        192
       ],
       "alpha": "binary",
       "texture_key": "bell",
@@ -68,8 +68,8 @@
       "name": "모닥불 프레임 1",
       "file": "objects/campfire-01.png",
       "size": [
-        128,
-        128
+        192,
+        192
       ],
       "alpha": "binary",
       "texture_key": "campfire-01",
@@ -82,8 +82,8 @@
       "name": "모닥불 프레임 2",
       "file": "objects/campfire-02.png",
       "size": [
-        128,
-        128
+        192,
+        192
       ],
       "alpha": "binary",
       "texture_key": "campfire-02",
@@ -420,7 +420,7 @@
       ],
       "frame_ms": 250,
       "loop": true,
-      "base_fixed_from_y": 62,
+      "base_fixed_from_y": 93,
       "runtime_key": "campfire"
     }
   },
