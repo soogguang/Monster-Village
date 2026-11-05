@@ -145,7 +145,7 @@
 
 | 담당 | 하는 일 | 폴더 |
 | --- | --- | --- |
-| 사용자 + Codex | 캐릭터·배경 아트 규격과 PNG, 스케치를 픽셀 아트로 변환, **캐릭터 목록(`catalog.json`)**, 배경 배치 참고 자료 | `public/assets/characters/`, `public/assets/terrain/`, `public/assets/objects/`, `public/assets/village-assets.json`, `design/`의 아트 자료 |
+| 사용자 + Codex | 캐릭터·배경 아트 규격과 PNG, 스케치를 픽셀 아트로 변환, **캐릭터 목록(`catalog.json`)**, 배경 배치 참고 자료 | `public/assets/characters/`, `public/assets/terrain/`, `public/assets/objects/`, `public/assets/village-assets.json`, `public/assets/decor-assets.json`, `design/`의 아트 자료 |
 | Claude Code | 프로젝트 구조, 게임 규칙과 테스트, **집중 습관 판정 코드**, DB 설계, 로그인, 맵과 렌더링 | 그 외 전부 |
 
 - 서로의 폴더는 건드리지 않아요. 필요한 변경이 있으면 사용자에게 먼저 알려요.
@@ -203,6 +203,8 @@
 - 게임용 그림: `public/assets/terrain/`(32×32 반복 타일), `public/assets/objects/`(개별 사물), `public/assets/characters/`(반죽·플레이어).
 - 수호나무 **192×256**, 집 **160×160** 두 종류, 모닥불 **128×128** 두 프레임, 응원의 종 **96×128**이에요. 캐릭터는 기존 **64×72**를 유지해요.
 - 그림 목록·기준점·기존 텍스처 대응은 `public/assets/village-assets.json`, 연결 설명은 [design/village/README.md](design/village/README.md)에 있어요.
+- 추가 꾸미기 아트는 장식 32장(나무·관목·꽃·생활 소품)과 32×32 바닥 타일 16장이에요. `public/assets/decor-assets.json`과 [추가 장식 안내](design/village/decor/README.md)를 참고해요.
+- 장식은 나무·관목·꽃·작은 돌을 묶어 마당 가장자리에 놓고, 남쪽 문과 중앙 길은 최소 3타일 폭으로 비워요. 이 PNG를 게임에 배치하는 연결은 Claude 담당이에요.
 - `design/village/layout-template.json`과 `expandable-layout.mjs`는 인원 상한 없는 배치 참고 자료예요. 앱에는 아직 연결되지 않았어요.
 - 실제 PNG 로딩, 남쪽 문, 전체 멤버 마당 배치, 충돌·카메라 연결은 **Claude가 연결을 마쳤어요.**
   - 그림은 `village-assets.json`의 `texture_key` 이름으로 불러와요. 파일이 없으면 같은 이름의 임시 그림을 써요.

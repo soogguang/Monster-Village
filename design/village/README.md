@@ -36,6 +36,12 @@
 `pledge-tree`는 `guardian-tree.png`, `bell`은 `cheering-bell.png`, `player`는 `player-front.png`를 사용합니다.
 기존 `campfire`는 첫 프레임에서 시작한 뒤 두 프레임을 반복하도록 연결합니다. 매니페스트에 대응 이름을 함께 적었습니다.
 
+## 추가 꾸미기 아트
+
+나무·관목·꽃·생활 소품 **32장**과 꽃·풀 바닥 타일 **16장**을 더했습니다.
+파일 목록은 [decor-assets.json](../../public/assets/decor-assets.json), 배치 기준과 전후 예시는 [추가 장식 안내](decor/README.md)에 있습니다.
+기본 배경 28장과 함께 사용하는 개별 PNG이며, 실제 화면의 자동 배치 연결은 Claude 담당입니다.
+
 ## 멤버 수에 따른 확장
 
 [layout-template.json](layout-template.json)은 반복 마당 규격입니다. [expandable-layout.mjs](expandable-layout.mjs)는 이 규격으로 좌표를 만드는 실행 가능한 참고 자료이며, 앱에는 아직 연결되지 않았습니다.

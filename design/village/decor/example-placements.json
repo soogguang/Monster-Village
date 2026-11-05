@@ -1,0 +1,1126 @@
+{
+  "status": "compact-art-vignette-not-runtime-layout",
+  "canvasSize": [
+    1536,
+    1024
+  ],
+  "tileSize": 32,
+  "note": "배치 예시의 작은 마당 크기는 실제 방의 마당 규격이 아닙니다. 확장형 맵에는 장식 무리를 반복 배치하세요.",
+  "sourcePaths": {
+    "base": "existing public/assets/ from village-art-v1 and approved residents",
+    "new": "this archive root"
+  },
+  "objects": [
+    {
+      "file": "objects/house-teal.png",
+      "source": "base",
+      "x": 256,
+      "y": 300,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "characters/player-front.png",
+      "source": "base",
+      "x": 256,
+      "y": 550,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "characters/sprout-mandu.png",
+      "source": "base",
+      "x": 356,
+      "y": 490,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-tree-round.png",
+      "source": "new",
+      "x": 101,
+      "y": 280,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-tree-citrus.png",
+      "source": "new",
+      "x": 411,
+      "y": 285,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-hedge.png",
+      "source": "new",
+      "x": 106,
+      "y": 90,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-hedge.png",
+      "source": "new",
+      "x": 154,
+      "y": 90,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-hedge.png",
+      "source": "new",
+      "x": 358,
+      "y": 90,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-hedge.png",
+      "source": "new",
+      "x": 406,
+      "y": 90,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-mailbox.png",
+      "source": "new",
+      "x": 206,
+      "y": 368,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-planter-daisy.png",
+      "source": "new",
+      "x": 331,
+      "y": 342,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-bush-blossom.png",
+      "source": "new",
+      "x": 111,
+      "y": 390,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-bush-round.png",
+      "source": "new",
+      "x": 412,
+      "y": 390,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-flowerbed-round.png",
+      "source": "new",
+      "x": 106,
+      "y": 570,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-flower-border.png",
+      "source": "new",
+      "x": 400,
+      "y": 562,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-moss-rocks.png",
+      "source": "new",
+      "x": 91,
+      "y": 600,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-fern.png",
+      "source": "new",
+      "x": 124,
+      "y": 600,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "ground"
+    },
+    {
+      "file": "objects/decor-mushrooms.png",
+      "source": "new",
+      "x": 424,
+      "y": 601,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "ground"
+    },
+    {
+      "file": "objects/decor-bench.png",
+      "source": "new",
+      "x": 371,
+      "y": 425,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-wheelbarrow.png",
+      "source": "new",
+      "x": 166,
+      "y": 355,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-seedling-tray.png",
+      "source": "new",
+      "x": 121,
+      "y": 450,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-watering-can.png",
+      "source": "new",
+      "x": 146,
+      "y": 490,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-flowers-daisy.png",
+      "source": "new",
+      "x": 74,
+      "y": 340,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "ground"
+    },
+    {
+      "file": "objects/decor-flowers-buttercup.png",
+      "source": "new",
+      "x": 433,
+      "y": 333,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "ground"
+    },
+    {
+      "file": "objects/decor-flowers-daisy.png",
+      "source": "new",
+      "x": 71,
+      "y": 470,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "ground"
+    },
+    {
+      "file": "objects/decor-flowers-buttercup.png",
+      "source": "new",
+      "x": 430,
+      "y": 485,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "ground"
+    },
+    {
+      "file": "objects/decor-flowers-daisy.png",
+      "source": "new",
+      "x": 152,
+      "y": 590,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "ground"
+    },
+    {
+      "file": "objects/decor-flowers-buttercup.png",
+      "source": "new",
+      "x": 361,
+      "y": 590,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "ground"
+    },
+    {
+      "file": "objects/house-clay.png",
+      "source": "base",
+      "x": 768,
+      "y": 300,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "characters/player-front.png",
+      "source": "base",
+      "x": 768,
+      "y": 550,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "characters/sprout-cat.png",
+      "source": "base",
+      "x": 868,
+      "y": 490,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-tree-birch.png",
+      "source": "new",
+      "x": 613,
+      "y": 280,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-tree-blossom.png",
+      "source": "new",
+      "x": 923,
+      "y": 285,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-hedge.png",
+      "source": "new",
+      "x": 618,
+      "y": 90,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-hedge.png",
+      "source": "new",
+      "x": 666,
+      "y": 90,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-hedge.png",
+      "source": "new",
+      "x": 870,
+      "y": 90,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-hedge.png",
+      "source": "new",
+      "x": 918,
+      "y": 90,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-mailbox.png",
+      "source": "new",
+      "x": 718,
+      "y": 368,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-planter-daisy.png",
+      "source": "new",
+      "x": 843,
+      "y": 342,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-bush-hydrangea.png",
+      "source": "new",
+      "x": 623,
+      "y": 390,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-bush-round.png",
+      "source": "new",
+      "x": 924,
+      "y": 390,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-flowerbed-round.png",
+      "source": "new",
+      "x": 618,
+      "y": 570,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-flower-border.png",
+      "source": "new",
+      "x": 912,
+      "y": 562,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-moss-rocks.png",
+      "source": "new",
+      "x": 603,
+      "y": 600,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-fern.png",
+      "source": "new",
+      "x": 636,
+      "y": 600,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "ground"
+    },
+    {
+      "file": "objects/decor-mushrooms.png",
+      "source": "new",
+      "x": 936,
+      "y": 601,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "ground"
+    },
+    {
+      "file": "objects/decor-well.png",
+      "source": "new",
+      "x": 908,
+      "y": 440,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-pot-lavender.png",
+      "source": "new",
+      "x": 692,
+      "y": 338,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-picnic.png",
+      "source": "new",
+      "x": 654,
+      "y": 478,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "ground"
+    },
+    {
+      "file": "objects/decor-flowers-lavender.png",
+      "source": "new",
+      "x": 586,
+      "y": 340,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "ground"
+    },
+    {
+      "file": "objects/decor-flowers-bluebell.png",
+      "source": "new",
+      "x": 945,
+      "y": 333,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "ground"
+    },
+    {
+      "file": "objects/decor-flowers-lavender.png",
+      "source": "new",
+      "x": 583,
+      "y": 470,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "ground"
+    },
+    {
+      "file": "objects/decor-flowers-bluebell.png",
+      "source": "new",
+      "x": 942,
+      "y": 485,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "ground"
+    },
+    {
+      "file": "objects/decor-flowers-lavender.png",
+      "source": "new",
+      "x": 664,
+      "y": 590,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "ground"
+    },
+    {
+      "file": "objects/decor-flowers-bluebell.png",
+      "source": "new",
+      "x": 873,
+      "y": 590,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "ground"
+    },
+    {
+      "file": "objects/house-teal.png",
+      "source": "base",
+      "x": 1280,
+      "y": 300,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "characters/player-front.png",
+      "source": "base",
+      "x": 1280,
+      "y": 550,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "characters/sprout-rabbit.png",
+      "source": "base",
+      "x": 1380,
+      "y": 490,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-tree-blossom.png",
+      "source": "new",
+      "x": 1125,
+      "y": 280,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-tree-round.png",
+      "source": "new",
+      "x": 1435,
+      "y": 285,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-hedge.png",
+      "source": "new",
+      "x": 1130,
+      "y": 90,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-hedge.png",
+      "source": "new",
+      "x": 1178,
+      "y": 90,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-hedge.png",
+      "source": "new",
+      "x": 1382,
+      "y": 90,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-hedge.png",
+      "source": "new",
+      "x": 1430,
+      "y": 90,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-mailbox.png",
+      "source": "new",
+      "x": 1230,
+      "y": 368,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-planter-daisy.png",
+      "source": "new",
+      "x": 1355,
+      "y": 342,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-bush-blossom.png",
+      "source": "new",
+      "x": 1135,
+      "y": 390,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-bush-round.png",
+      "source": "new",
+      "x": 1436,
+      "y": 390,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-flowerbed-round.png",
+      "source": "new",
+      "x": 1130,
+      "y": 570,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-flower-border.png",
+      "source": "new",
+      "x": 1424,
+      "y": 562,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-moss-rocks.png",
+      "source": "new",
+      "x": 1115,
+      "y": 600,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-fern.png",
+      "source": "new",
+      "x": 1148,
+      "y": 600,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "ground"
+    },
+    {
+      "file": "objects/decor-mushrooms.png",
+      "source": "new",
+      "x": 1448,
+      "y": 601,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "ground"
+    },
+    {
+      "file": "objects/decor-picnic.png",
+      "source": "new",
+      "x": 1166,
+      "y": 470,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "ground"
+    },
+    {
+      "file": "objects/decor-pot-lavender.png",
+      "source": "new",
+      "x": 1204,
+      "y": 338,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-bench.png",
+      "source": "new",
+      "x": 1395,
+      "y": 425,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-flowers-cosmos.png",
+      "source": "new",
+      "x": 1098,
+      "y": 340,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "ground"
+    },
+    {
+      "file": "objects/decor-flowers-tulip.png",
+      "source": "new",
+      "x": 1457,
+      "y": 333,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "ground"
+    },
+    {
+      "file": "objects/decor-flowers-cosmos.png",
+      "source": "new",
+      "x": 1095,
+      "y": 470,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "ground"
+    },
+    {
+      "file": "objects/decor-flowers-tulip.png",
+      "source": "new",
+      "x": 1454,
+      "y": 485,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "ground"
+    },
+    {
+      "file": "objects/decor-flowers-cosmos.png",
+      "source": "new",
+      "x": 1176,
+      "y": 590,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "ground"
+    },
+    {
+      "file": "objects/decor-flowers-tulip.png",
+      "source": "new",
+      "x": 1385,
+      "y": 590,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "ground"
+    },
+    {
+      "file": "objects/guardian-tree.png",
+      "source": "base",
+      "x": 520,
+      "y": 1004,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/campfire-01.png",
+      "source": "base",
+      "x": 820,
+      "y": 1004,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/cheering-bell.png",
+      "source": "base",
+      "x": 1120,
+      "y": 1000,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "characters/sprout-puppy.png",
+      "source": "base",
+      "x": 976,
+      "y": 920,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-bench.png",
+      "source": "new",
+      "x": 666,
+      "y": 1006,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-noticeboard.png",
+      "source": "new",
+      "x": 1000,
+      "y": 832,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-lantern.png",
+      "source": "new",
+      "x": 1230,
+      "y": 1005,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-lantern.png",
+      "source": "new",
+      "x": 323,
+      "y": 1005,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-stump.png",
+      "source": "new",
+      "x": 910,
+      "y": 1000,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-stump.png",
+      "source": "new",
+      "x": 919,
+      "y": 949,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-stump.png",
+      "source": "new",
+      "x": 731,
+      "y": 1005,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-bush-hydrangea.png",
+      "source": "new",
+      "x": 400,
+      "y": 882,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-bush-blossom.png",
+      "source": "new",
+      "x": 1250,
+      "y": 892,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-moss-rocks.png",
+      "source": "new",
+      "x": 420,
+      "y": 994,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    },
+    {
+      "file": "objects/decor-fern.png",
+      "source": "new",
+      "x": 451,
+      "y": 1006,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "ground"
+    },
+    {
+      "file": "objects/decor-flowers-daisy.png",
+      "source": "new",
+      "x": 388,
+      "y": 960,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "ground"
+    },
+    {
+      "file": "objects/decor-flowers-cosmos.png",
+      "source": "new",
+      "x": 1190,
+      "y": 972,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "ground"
+    },
+    {
+      "file": "objects/decor-mushrooms.png",
+      "source": "new",
+      "x": 357,
+      "y": 1000,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "ground"
+    },
+    {
+      "file": "objects/decor-bush-round.png",
+      "source": "new",
+      "x": 1170,
+      "y": 800,
+      "anchor": [
+        0.5,
+        1
+      ],
+      "layer": "depth"
+    }
+  ]
+}
