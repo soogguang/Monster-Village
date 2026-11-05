@@ -67,12 +67,18 @@ async function loadPixelFonts(): Promise<void> {
 }
 
 /**
- * 배경 그림 목록(public/assets/village-assets.json, Codex 담당)을 읽어요.
+ * 배경 그림 목록(public/assets/village-assets.json, decor-assets.json)을 읽어요.
  * 텍스처 이름은 목록의 texture_key를 그대로 써요. 목록이 없으면 임시 그림으로 그려요.
  */
 async function loadWorldAssets(): Promise<WorldAsset[]> {
+  // 기본 배경(village-assets.json)과 꾸미기 장식(decor-assets.json), 둘 다 Codex 담당이에요.
+  const lists = await Promise.all(['assets/village-assets.json', 'assets/decor-assets.json'].map(readManifest));
+  return lists.flat();
+}
+
+async function readManifest(path: string): Promise<WorldAsset[]> {
   try {
-    const res = await fetch('assets/village-assets.json', { cache: 'no-cache' });
+    const res = await fetch(path, { cache: 'no-cache' });
     if (!res.ok) return [];
     const manifest = (await res.json()) as { assets?: { file?: string; texture_key?: string }[] };
     return (manifest.assets ?? [])

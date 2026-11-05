@@ -9,6 +9,7 @@ import { roomView, type RoomViewState } from '../net/rooms';
 import { doughStage, type DoughStage, type Task } from '../rules/task';
 import type { GameState, GameStore, Resident } from '../store';
 import { HOUSE_TILES, buildTiles, createVillageLayout, withMinWidth, type Rect, type Spot, type VillageLayout, type YardPlan } from '../world/layout';
+import { MEADOW_TILES, grassTileAt, villageDecor } from '../world/decor';
 import { makePlaceholderTextures } from './textures';
 
 const T = TILE_SIZE;
@@ -24,8 +25,8 @@ const SOLO_ID = 'me';
 const STAGE_LABELS: Record<DoughStage, string> = { soft: '말랑', grumpy: '심술', monster: '몬스터' };
 
 /** 바닥 타일 묶음(타일셋)의 순서. 타일맵은 이 번호로 그려요 */
-const TERRAIN_KEYS = ['grass-01', 'grass-02', 'grass-03', 'grass-04', 'dirt', 'stone', 'fence-h', 'fence-v', 'fence-corner'] as const;
-const TILE_INDEX = Object.fromEntries(TERRAIN_KEYS.map((k, i) => [k, i])) as Record<(typeof TERRAIN_KEYS)[number], number>;
+const TERRAIN_KEYS = ['grass-01', 'grass-02', 'grass-03', 'grass-04', 'dirt', 'stone', 'fence-h', 'fence-v', 'fence-corner', ...MEADOW_TILES] as const;
+const TILE_INDEX = Object.fromEntries(TERRAIN_KEYS.map((k, i) => [k, i])) as Record<string, number>;
 
 export interface WorldAsset {
   key: string;
@@ -175,7 +176,8 @@ export class VillageScene extends Phaser.Scene {
     const overlay = map.createBlankLayer('overlay', tileset, bounds.col * T, bounds.row * T)!.setDepth(-1);
     tiles.ground.forEach((row, r) =>
       row.forEach((t, c) => {
-        const index = t === 'grass' ? grassVariant(c + bounds.col, r + bounds.row) : TILE_INDEX[t];
+        // 풀 자리는 마당 테마에 맞는 꽃 풀밭을 무리 지어 섞어요.
+        const index = t === 'grass' ? TILE_INDEX[grassTileAt(this.layout, c + bounds.col, r + bounds.row)] : TILE_INDEX[t];
         ground.putTileAt(index, c, r);
       }),
     );
@@ -193,6 +195,15 @@ export class VillageScene extends Phaser.Scene {
         .setOrigin(0.5, 0).setBackgroundColor('#2b2433cc').setPadding(6, 2, 6, 2);
       things.push(sign);
       this.yardSigns.set(yard.userId, sign);
+    }
+
+    // 꾸미기 장식: 나무·관목·꽃·생활 소품. 꽃과 풀은 지나갈 수 있고, 나머지는 발밑만 막아요.
+    for (const d of villageDecor(this.layout)) {
+      if (!this.textures.exists(d.key)) continue;
+      const x = d.x * T;
+      const y = d.y * T;
+      things.push(this.add.image(x, y, d.key).setOrigin(0.5, 1).setDepth(d.layer === 'ground' ? -0.5 : y));
+      if (d.block) this.block(x, y - (d.block.h * T) / 2, d.block.w * T, d.block.h * T);
     }
 
     // 광장: 수호나무(공동 할 일), 모닥불(같이 집중), 응원의 종
@@ -241,7 +252,8 @@ export class VillageScene extends Phaser.Scene {
   private buildTerrainTileset(): void {
     const canvas = this.textures.createCanvas('terrain-tiles', TERRAIN_KEYS.length * T, T)!;
     TERRAIN_KEYS.forEach((key, i) => {
-      const source = this.textures.exists(key) ? key : 'fence-h';
+      // 그림이 없으면 비슷한 것으로 대신해요 (꽃 풀밭 → 기본 풀)
+      const source = this.textures.exists(key) ? key : key.startsWith('grass') ? 'grass-01' : 'fence-h';
       canvas.context.drawImage(this.textures.get(source).getSourceImage() as CanvasImageSource, i * T, 0, T, T);
     });
     canvas.refresh();
@@ -307,9 +319,9 @@ export class VillageScene extends Phaser.Scene {
   }
 
   private addDough(task: Task, index: number): DoughView {
-    // 집과 가운데 길을 피해서 양옆에 두 개씩, 한 줄에 4개 놓아요.
-    const columns = [0.1, 0.27, 0.73, 0.9];
-    const { x, y } = this.yardSpot(this.myYard, columns[index % 4], 0.5 + Math.floor(index / 4) * 0.16);
+    // 가운데 길 양옆, 장식이 없는 빈터에 두 개씩 한 줄에 4개 놓아요. (가장자리는 정원 장식 자리)
+    const columns = [0.29, 0.38, 0.66, 0.75];
+    const { x, y } = this.yardSpot(this.myYard, columns[index % 4], 0.5 + Math.floor(index / 4) * 0.14);
     const sprite = this.add.image(x, y, 'dough-soft').setOrigin(0.5, 1).setDepth(y);
     this.tweens.add({ targets: sprite, scaleY: 0.92, scaleX: 1.05, duration: 650, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
     const view = {
@@ -448,12 +460,6 @@ export class VillageScene extends Phaser.Scene {
 /** 광장 물건 기준점(바닥 가운데 타일)의 월드 좌표 */
 function spotXY(spot: Spot): [number, number] {
   return [(spot.col + 0.5) * T, (spot.row + 1) * T];
-}
-
-/** 풀 그림 4종을 위치마다 고정된 무작위로 골라요. (꽃은 드물게) */
-function grassVariant(col: number, row: number): number {
-  const h = Math.abs(Math.sin(col * 12.9898 + row * 78.233) * 43758.5453) % 1;
-  return h < 0.45 ? 0 : h < 0.8 ? 1 : h < 0.93 ? 2 : 3;
 }
 
 function characterKey(id: string): string {
