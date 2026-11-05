@@ -1,6 +1,6 @@
 // 여러 창에서 같이 쓰는 글자·날짜 도우미
 
-import { HABITS } from '../config';
+import { FRIENDSHIP, HABITS } from '../config';
 import type { HabitId } from '../rules/habits';
 import type { DoughStage, ResidentKind } from '../rules/task';
 
@@ -51,6 +51,13 @@ export function toLocalInput(ms: number): string {
 
 export function fromLocalInput(value: string): number {
   return new Date(value).getTime();
+}
+
+/** 친밀도 표시: ♥♥♥♡♡♡ (진화 단계까지), 넘으면 숫자를 덧붙여요 */
+export function heartsText(hearts: number): string {
+  const max = FRIENDSHIP.evolveHearts;
+  const filled = Math.min(hearts, max);
+  return '♥'.repeat(filled) + '♡'.repeat(max - filled) + (hearts > max ? ` +${hearts - max}` : '');
 }
 
 export function escapeHtml(s: string): string {

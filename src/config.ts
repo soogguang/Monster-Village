@@ -44,3 +44,11 @@ export const HABITS = {
   /** 차곡차곡 해내기: 하루에 서로 다른 할 일을 이만큼 완료 */
   manyDoneCount: 3,
 } as const;
+
+/** 주민 친밀도 단계 (♥ 개수) */
+export const FRIENDSHIP = {
+  /** 이만큼 모이면 친해져요 (가끔 다가와서 인사) */
+  friendHearts: 3,
+  /** 이만큼 모이면 진화해요 (보여주는 방식은 Codex와 정리 중) */
+  evolveHearts: 6,
+} as const;

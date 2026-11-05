@@ -1,11 +1,12 @@
 // 가운데에 뜨는 창들 (할 일, 캘린더, 도감, 내 주민)
 // 창 안의 목록은 저장소가 바뀔 때마다 다시 그리고, 입력 중인 폼은 건드리지 않아요.
 
+import { friendshipStage } from '../rules/friendship';
 import { HABIT_IDS } from '../rules/habits';
 import { doughStage, progressRatio, type CalendarStyle, type Task } from '../rules/task';
 import type { GameState, GameStore, Resident } from '../store';
 import {
-  DAY, HABIT_TEXT, RESIDENT_TEXT, STAGE_TEXT, WEEKDAYS,
+  DAY, HABIT_TEXT, RESIDENT_TEXT, STAGE_TEXT, WEEKDAYS, heartsText,
   escapeHtml, formatDate, fromLocalInput, startOfDay, toLocalInput,
 } from './format';
 
@@ -412,12 +413,12 @@ export const dexWindow: GameWindow = {
         const items = catalog.filter(test);
         if (!items.length) return '';
         return `<h3>${name}</h3><div class="dex-grid">${items.map((c) => {
-          const count = met.get(c.id) ?? 0;
+          const count = state.residents.find((r) => r.speciesId === c.id)?.hearts ?? 0;
           const lockedHabit = c.unlock && state.unlocks[c.unlock] === undefined ? HABIT_TEXT[c.unlock].name : '';
           return `<div class="dex-card ${count ? '' : 'locked'}">
             <img src="${ctx.characterDir}${c.image}" alt="" />
             <div class="name">${count ? escapeHtml(c.name) : '???'}</div>
-            <div class="sub">${count ? `${count}마리 · ${escapeHtml(c.personality ?? '')}` : lockedHabit ? `🔒 ${lockedHabit}` : '아직 못 만났어요'}</div>
+            <div class="sub">${count ? `${heartsText(count)}<br />${escapeHtml(c.personality ?? '')}` : lockedHabit ? `🔒 ${lockedHabit}` : '아직 못 만났어요'}</div>
           </div>`;
         }).join('')}</div>`;
       }).join('');
@@ -444,17 +445,26 @@ export const residentsWindow: GameWindow = {
         body.innerHTML = '<div class="empty">아직 마당에 주민이 없어요.<br />할 일을 끝내면 주민이 태어나요!</div>';
         return;
       }
-      body.innerHTML = `<p class="muted" style="margin:0 0 8px">마당에 사는 주민 ${residents.length}명</p>` + residents.map((r) => {
+      const shownCount = residents.filter((r) => r.visible).length;
+      body.innerHTML = `<p class="muted" style="margin:0 0 8px">만난 주민 ${residents.length}명 · 마당에 나온 주민 ${shownCount}명</p>` + residents.map((r) => {
         const species = catalog.find((c) => c.id === r.speciesId);
         const name = r.nickname ?? species?.name ?? RESIDENT_TEXT[r.kind];
         const img = species ? `<img src="${ctx.characterDir}${species.image}" alt="" style="width:48px;height:54px;image-rendering:pixelated" />` : `<span style="font-size:28px;width:48px;text-align:center">${RESIDENT_TEXT[r.kind].split(' ')[0]}</span>`;
         const nameCell = r.id === renamingId
           ? `<form class="rename row" data-id="${r.id}"><input class="px-input" name="nickname" maxlength="12" value="${escapeHtml(r.nickname ?? '')}" placeholder="별명" /><button class="px-btn small green">저장</button></form>`
           : `<strong class="grow">${escapeHtml(name)}</strong><button class="px-btn small ghost" data-act="rename" data-id="${r.id}">별명</button>`;
-        return `<div class="slot"><div class="row">${img}<div class="grow"><div class="row">${nameCell}</div>
-          <div class="meta">${residentKindText(r)}${species && r.nickname ? ` · ${escapeHtml(species.name)}` : ''} · "${escapeHtml(r.fromTask)}" 끝내고 ${formatDate(r.bornAt)} 탄생</div></div></div></div>`;
+        const stage = friendshipStage(r.hearts);
+        const stageText = stage === 'evolved' ? '🌟 진화' : stage === 'friend' ? '💕 친한 사이' : '👋 처음 만남';
+        return `<div class="slot ${r.visible ? '' : 'hidden-resident'}"><div class="row">${img}<div class="grow"><div class="row">${nameCell}</div>
+          <div class="meta"><span class="hearts">${heartsText(r.hearts)}</span> ${stageText}</div>
+          <div class="meta">${residentKindText(r)}${species && r.nickname ? ` · ${escapeHtml(species.name)}` : ''} · 처음 만난 날 ${formatDate(r.bornAt)} ("${escapeHtml(r.fromTask)}")</div></div>
+          <label class="yard-toggle"><input type="checkbox" data-act="visible" data-id="${r.id}" ${r.visible ? 'checked' : ''} /> 마당에 나오기</label></div></div>`;
       }).join('');
     };
+    body.addEventListener('change', (e) => {
+      const box = e.target as HTMLInputElement;
+      if (box.dataset.act === 'visible') ctx.store.setResidentVisible(box.dataset.id!, box.checked);
+    });
     body.addEventListener('click', (e) => {
       const el = (e.target as HTMLElement).closest<HTMLElement>('[data-act=rename]');
       if (el) { renamingId = el.dataset.id!; render(ctx.store.get()); body.querySelector<HTMLInputElement>('form.rename input')?.focus(); }

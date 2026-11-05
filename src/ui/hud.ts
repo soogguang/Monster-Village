@@ -3,7 +3,7 @@
 import { RULES } from '../config';
 import type { HabitId } from '../rules/habits';
 import type { CompleteResult, GameStore } from '../store';
-import { HABIT_TEXT, RESIDENT_TEXT, escapeHtml, formatClock, formatElapsed } from './format';
+import { HABIT_TEXT, RESIDENT_TEXT, escapeHtml, formatClock, formatElapsed, heartsText } from './format';
 import { WINDOWS, type GameWindow, type WindowContext } from './windows';
 
 export function mountHud(store: GameStore, characterDir: string): void {
@@ -151,9 +151,14 @@ export function mountHud(store: GameStore, characterDir: string): void {
   document.addEventListener('visibilitychange', beat);
 }
 
-function birthMessage({ resident: r, species, newUnlocks }: CompleteResult): string {
+function birthMessage({ resident: r, species, newUnlocks, isNew, stageUp }: CompleteResult): string {
   const kind = r.kind === 'sprout' && r.rare ? '✨ 희귀 새싹' : RESIDENT_TEXT[r.kind];
-  let text = `"${r.fromTask}"을(를) 끝내서 ${kind} 주민${species ? ` "${species.name}"` : ''}이(가) 태어났어요!`;
+  const name = r.nickname ?? species?.name ?? kind;
+  let text = isNew
+    ? `"${r.fromTask}"을(를) 끝내서 ${kind} 주민${species ? ` "${species.name}"` : ''}이(가) 마당으로 이사 왔어요!`
+    : `"${name}"을(를) 다시 만났어요! 친밀도 ${heartsText(r.hearts)}`;
+  if (stageUp === 'friend') text += `\n💕 "${name}"와(과) 친해졌어요! 가끔 인사하러 올 거예요.`;
+  if (stageUp === 'evolved') text += `\n🌟 "${name}"이(가) 진화할 만큼 친해졌어요!`;
   if (r.kind === 'sleepy') text += `\n(집중 ${RULES.focusMinutesForSleepy}분 이상 덕분에 개과천선)`;
   if (newUnlocks.length) text += `\n${unlockMessage(newUnlocks)}`;
   return text;

@@ -194,3 +194,8 @@ button, input, select { font: inherit; color: inherit; }
 .login-actions { display: grid; gap: 8px; margin: 14px 0 10px; }
 .px-btn.kakao { background: #f7d94c; color: #3b2414; text-shadow: none; box-shadow: inset var(--px) var(--px) 0 #fff0a0, inset calc(var(--px) * -1) calc(var(--px) * -1) 0 #d1b230; }
 #account { position: fixed; top: 16px; right: 16px; z-index: 5; display: flex; align-items: center; gap: 8px; padding: 6px 8px; }
+
+/* 내 주민들 */
+.hearts { color: var(--berry); letter-spacing: 1px; }
+.yard-toggle { white-space: nowrap; cursor: pointer; font-size: 11px; }
+.slot.hidden-resident { opacity: 0.6; }

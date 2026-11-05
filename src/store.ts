@@ -2,6 +2,7 @@
 // 지금은 브라우저(localStorage)에 임시로 저장해요. Supabase를 연결하면 Storage 구현만 바꿔요.
 
 import { pickResident, type CatalogEntry } from './rules/catalog';
+import { friendshipStage, residentKey, type FriendshipStage } from './rules/friendship';
 import { HABIT_IDS, achievedHabits, localDayKey, type FocusSession, type HabitId } from './rules/habits';
 import { addFocus, createTask, decideResident, extendDue, type CalendarStyle, type ResidentKind, type Task } from './rules/task';
 
@@ -13,6 +14,10 @@ export interface Resident {
   speciesId: string | null;
   /** 사용자가 붙인 별명 (없으면 캐릭터 이름으로 보여요) */
   nickname?: string;
+  /** 친밀도: 이 캐릭터를 만난 횟수 (처음 만나면 1) */
+  hearts: number;
+  /** 마당에 나올지 (사용자가 켜고 꺼요) */
+  visible: boolean;
   /** 이 주민을 태어나게 한 할 일 제목 */
   fromTask: string;
   bornAt: number;
@@ -42,11 +47,15 @@ export interface Storage {
   save(state: GameState): void;
 }
 
-/** 할 일을 끝냈을 때의 결과: 태어난 주민과, 이번에 새로 해금된 습관 */
+/** 할 일을 끝냈을 때의 결과: 태어나거나 다시 만난 주민과, 이번에 새로 해금된 습관 */
 export interface CompleteResult {
   resident: Resident;
   species: CatalogEntry | null;
   newUnlocks: HabitId[];
+  /** 처음 만났으면 true, 이미 있던 주민이면 false (친밀도 ♥가 올라가요) */
+  isNew: boolean;
+  /** 이번에 친밀도 단계가 올라갔다면 그 단계 */
+  stageUp: FriendshipStage | null;
 }
 
 const MINUTE = 60 * 1000;
@@ -181,6 +190,11 @@ export class GameStore {
     return ended;
   }
 
+  /** 마당에 나올지 켜고 꺼요. */
+  setResidentVisible(residentId: string, visible: boolean): void {
+    this.set({ ...this.state, residents: this.state.residents.map((r) => (r.id === residentId ? { ...r, visible } : r)) });
+  }
+
   renameResident(residentId: string, nickname: string): void {
     const name = nickname.trim().slice(0, 12);
     this.set({
@@ -221,7 +235,7 @@ export class GameStore {
     const result = decideResident(task, completedAt, this.rng);
     const unlocked = new Set(Object.keys(unlocks) as HabitId[]);
     const species = pickResident(this.catalog, result, unlocked, this.rng);
-    const resident: Resident = {
+    const born: Resident = {
       id: newId(),
       kind: result.kind,
       // 희귀 후보가 없어서 일반 새싹이 나왔다면 일반 새싹으로 기록해요. (그림이 아직 없으면 판정 그대로)
@@ -229,9 +243,22 @@ export class GameStore {
       speciesId: species?.id ?? null,
       fromTask: task.title,
       bornAt: completedAt,
+      hearts: 1,
+      visible: true,
     };
-    this.set({ ...this.state, tasks, unlocks, residents: [...this.state.residents, resident] });
-    return { resident, species, newUnlocks: [...focusUnlocks, ...newUnlocks] };
+
+    // 이미 만난 캐릭터면 새 주민 대신 그 주민의 친밀도 ♥를 올려요.
+    const existing = this.state.residents.find((r) => residentKey(r) === residentKey(born));
+    if (existing) {
+      const before = friendshipStage(existing.hearts);
+      const resident = { ...existing, hearts: existing.hearts + 1 };
+      const after = friendshipStage(resident.hearts);
+      const residents = this.state.residents.map((r) => (r.id === existing.id ? resident : r));
+      this.set({ ...this.state, tasks, unlocks, residents });
+      return { resident, species, newUnlocks: [...focusUnlocks, ...newUnlocks], isNew: false, stageUp: after !== before ? after : null };
+    }
+    this.set({ ...this.state, tasks, unlocks, residents: [...this.state.residents, born] });
+    return { resident: born, species, newUnlocks: [...focusUnlocks, ...newUnlocks], isNew: true, stageUp: null };
   }
 
   private checkUnlocks(tasks: Task[], sessions: FocusSession[]) {
@@ -284,13 +311,26 @@ export class LocalStorage implements Storage {
 export function normalizeState(saved: Partial<GameState> | null | undefined): GameState {
   return {
     tasks: saved?.tasks ?? [],
-    residents: (saved?.residents ?? []).map((r) => ({ ...r, speciesId: r.speciesId ?? null })),
+    residents: mergeDuplicateResidents(
+      (saved?.residents ?? []).map((r) => ({ ...r, speciesId: r.speciesId ?? null, hearts: r.hearts ?? 1, visible: r.visible ?? true })),
+    ),
     focus: saved?.focus ?? null,
     sessions: saved?.sessions ?? [],
     unlocks: saved?.unlocks ?? {},
     plans: saved?.plans ?? {},
     lastSeenAt: saved?.lastSeenAt ?? null,
   };
+}
+
+/** 친밀도 기능 전에 저장된 데이터에는 같은 캐릭터가 여러 명 있을 수 있어서, 한 명으로 합치고 ♥를 더해요. */
+function mergeDuplicateResidents(residents: Resident[]): Resident[] {
+  const byKey = new Map<string, Resident>();
+  for (const r of [...residents].sort((a, b) => a.bornAt - b.bornAt)) {
+    const key = residentKey(r);
+    const first = byKey.get(key);
+    byKey.set(key, first ? { ...first, hearts: first.hearts + r.hearts } : r);
+  }
+  return [...byKey.values()];
 }
 
 function startOfLocalDay(ms: number): number {

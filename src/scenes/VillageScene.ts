@@ -2,7 +2,7 @@
 // 화면은 저장소(GameStore)의 상태를 그대로 그리기만 해요. 상태를 바꾸는 건 할 일 패널이 해요.
 
 import Phaser from 'phaser';
-import { TILE_SIZE, pickPixelScale } from '../config';
+import { FRIENDSHIP, TILE_SIZE, pickPixelScale } from '../config';
 import { doughStage, type DoughStage, type Task } from '../rules/task';
 import type { GameState, GameStore, Resident } from '../store';
 import { MAP_COLS, MAP_ROWS, PLAZA_SPOTS, YARDS, buildTiles, isBlocked, type Yard } from '../world/layout';
@@ -30,6 +30,8 @@ export class VillageScene extends Phaser.Scene {
   private keys!: MoveKeys;
   private doughViews = new Map<string, DoughView>();
   private residentViews = new Map<string, Phaser.GameObjects.Image>();
+  /** 주민별 친밀도 (♥가 오르면 하트를 띄우고, 친해진 주민은 가끔 인사하러 와요) */
+  private residentHearts = new Map<string, number>();
   private labels: Phaser.GameObjects.Text[] = [];
   private pixelScale = pickPixelScale(window.innerHeight);
   private myYard = YARDS.find((y) => y.owner === 'me')!;
@@ -121,8 +123,24 @@ export class VillageScene extends Phaser.Scene {
       view.label.setText(`${shorten(task.title)}\n${sleepy ? '졸림' : STAGE_LABELS[stage]}`);
     });
 
-    state.residents.forEach((r, i) => {
-      if (!this.residentViews.has(r.id)) this.residentViews.set(r.id, this.addResident(this.myYard, r, i, true));
+    // 마당에 나오기를 켠 주민만 그려요.
+    const shown = state.residents.filter((r) => r.visible);
+    for (const [id, sprite] of this.residentViews) {
+      if (!shown.some((r) => r.id === id)) {
+        this.tweens.killTweensOf(sprite);
+        sprite.destroy();
+        this.residentViews.delete(id);
+      }
+    }
+    shown.forEach((r, i) => {
+      const sprite = this.residentViews.get(r.id);
+      if (!sprite) {
+        this.residentHearts.set(r.id, r.hearts);
+        this.residentViews.set(r.id, this.addResident(this.myYard, r, i, true, () => (this.residentHearts.get(r.id) ?? 0) >= FRIENDSHIP.friendHearts));
+      } else if ((this.residentHearts.get(r.id) ?? r.hearts) < r.hearts) {
+        this.popHeart(sprite);
+      }
+      this.residentHearts.set(r.id, r.hearts);
     });
   }
 
@@ -142,7 +160,13 @@ export class VillageScene extends Phaser.Scene {
     return view;
   }
 
-  private addResident(yard: Yard, r: Pick<Resident, 'kind' | 'rare' | 'speciesId'>, index: number, bornNow: boolean): Phaser.GameObjects.Image {
+  private addResident(
+    yard: Yard,
+    r: Pick<Resident, 'kind' | 'rare' | 'speciesId'>,
+    index: number,
+    bornNow: boolean,
+    isFriend: () => boolean = () => false,
+  ): Phaser.GameObjects.Image {
     const rng = new Phaser.Math.RandomDataGenerator([`${yard.name}-${index}`]);
     const home = this.yardSpot(yard, rng.realInRange(0.15, 0.85), rng.realInRange(0.55, 0.9));
     const placeholder = r.kind === 'sprout' && r.rare ? 'resident-sprout-rare' : `resident-${r.kind}`;
@@ -152,13 +176,33 @@ export class VillageScene extends Phaser.Scene {
       sprite.setScale(0);
       this.tweens.add({ targets: sprite, scale: 1, duration: 500, ease: 'Back.Out' });
     }
-    this.wander(sprite, yard, rng);
+    this.wander(sprite, yard, rng, isFriend);
     return sprite;
   }
 
-  /** 주민이 마당 안에서 통통 튀며 천천히 돌아다녀요. */
-  private wander(sprite: Phaser.GameObjects.Image, yard: Yard, rng: Phaser.Math.RandomDataGenerator): void {
-    const next = this.yardSpot(yard, rng.realInRange(0.1, 0.9), rng.realInRange(0.5, 0.92));
+  /** 주민 머리 위로 하트가 떠올라요. (친밀도가 오르거나 인사할 때) */
+  private popHeart(sprite: Phaser.GameObjects.Image): void {
+    const heart = this.makeLabel(sprite.x, sprite.y - sprite.displayHeight, '♥', '#e0505a').setOrigin(0.5, 1);
+    this.tweens.add({ targets: heart, y: heart.y - TILE_SIZE * 0.75, alpha: 0, duration: 1400, ease: 'Sine.Out', onComplete: () => heart.destroy() });
+  }
+
+  private playerInYard(yard: Yard): boolean {
+    const { col, row, cols, rows } = yard.rect;
+    const x = this.player.x / TILE_SIZE;
+    const y = this.player.y / TILE_SIZE;
+    return x > col && x < col + cols && y > row && y < row + rows;
+  }
+
+  /**
+   * 주민이 마당 안에서 통통 튀며 천천히 돌아다녀요.
+   * 친해진 주민(♥3 이상)은 내가 마당에 있으면 가끔 다가와서 하트로 인사해요.
+   */
+  private wander(sprite: Phaser.GameObjects.Image, yard: Yard, rng: Phaser.Math.RandomDataGenerator, isFriend: () => boolean): void {
+    if (!sprite.active) return;
+    const greet = isFriend() && this.player && this.playerInYard(yard) && rng.frac() < 0.35;
+    const next = greet
+      ? { x: this.player.x + (rng.frac() < 0.5 ? -1 : 1) * TILE_SIZE * 1.5, y: this.player.y + TILE_SIZE * 0.25 }
+      : this.yardSpot(yard, rng.realInRange(0.1, 0.9), rng.realInRange(0.5, 0.92));
     sprite.setFlipX(next.x < sprite.x);
     this.tweens.add({
       targets: sprite,
@@ -168,7 +212,10 @@ export class VillageScene extends Phaser.Scene {
       duration: (Phaser.Math.Distance.Between(sprite.x, sprite.y, next.x, next.y) / TILE_SIZE) * 960,
       delay: rng.between(800, 3000),
       onUpdate: () => sprite.setDepth(sprite.y),
-      onComplete: () => this.wander(sprite, yard, rng),
+      onComplete: () => {
+        if (greet && sprite.active) this.popHeart(sprite);
+        this.wander(sprite, yard, rng, isFriend);
+      },
     });
   }
 

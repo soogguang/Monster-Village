@@ -193,4 +193,30 @@ describe('GameStore', () => {
     expect(store.get().focus).toBeNull();
     expect(store.get().sessions.at(-1)).toMatchObject({ startedAt: start, endedAt: lastSeen });
   });
+
+  it('같은 캐릭터가 또 나오면 새 주민 대신 친밀도가 올라가고, 3·6에서 단계가 올라가요', () => {
+    const { store, start } = setup(0.99);
+    store.setCatalog([{ id: 'puppy', name: '강아지', kind: 'sprout', rare: false, unlock: null, image: 'p.png' }]);
+    const results = Array.from({ length: 6 }, (_, i) => store.completeTask(store.addTask(`t${i}`, start, start + 10 * DAY).id));
+    expect(store.get().residents).toHaveLength(1);
+    expect(store.get().residents[0].hearts).toBe(6);
+    expect(results.map((r) => r.isNew)).toEqual([true, false, false, false, false, false]);
+    expect(results.map((r) => r.stageUp)).toEqual([null, null, 'friend', null, null, 'evolved']);
+  });
+
+  it('주민을 마당에서 숨기거나 다시 나오게 할 수 있어요', () => {
+    const { store, start } = setup();
+    const { resident } = store.completeTask(store.addTask('a', start, start + DAY).id);
+    expect(resident.visible).toBe(true);
+    store.setResidentVisible(resident.id, false);
+    expect(store.get().residents[0].visible).toBe(false);
+  });
+
+  it('예전 데이터에 같은 캐릭터가 여러 명이면 한 명으로 합치고 ♥를 더해요', () => {
+    const storage = new MemoryStorage();
+    const r = (id: string, bornAt: number) => ({ id, kind: 'sprout', rare: false, speciesId: 'cat', fromTask: 't', bornAt });
+    storage.saved = { residents: [r('b', 2), r('a', 1), { ...r('c', 3), speciesId: 'dog' }] } as unknown as GameState;
+    const store = new GameStore(storage);
+    expect(store.get().residents.map((x) => [x.id, x.hearts])).toEqual([['a', 2], ['c', 1]]);
+  });
 });
