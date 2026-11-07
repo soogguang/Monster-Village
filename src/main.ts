@@ -9,10 +9,12 @@ import { startCloudSave } from './net/cloudSave';
 import { SupabaseRooms, roomView } from './net/rooms';
 import { getSupabase } from './net/supabase';
 import { mountHud } from './ui/hud';
-import { chosenGuest, mountAccountBadge, showLogin } from './ui/login';
+import { askNickname, chosenGuest, mountAccountBadge, saveNickname, showLogin } from './ui/login';
 import './ui/pixel.css';
 
 const CHARACTER_DIR = 'assets/characters/';
+/** DB가 이름이 없을 때 넣는 기본 이름 (0001_init.sql의 profiles.nickname 기본값) */
+const DEFAULT_NICKNAME = '주민';
 
 const store = new GameStore(new LocalStorage());
 store.setCatalog(await loadCatalog());
@@ -52,12 +54,18 @@ async function connectAccount(): Promise<{ client: SupabaseClient; me: { id: str
     return null;
   }
   const { data: profile } = await client.from('profiles').select('nickname').eq('id', user.id).maybeSingle();
-  const nickname = profile?.nickname ?? '주민';
-  mountAccountBadge(client, nickname);
+  const me = { id: user.id, nickname: profile?.nickname ?? DEFAULT_NICKNAME };
+  // 처음 로그인하면 동네에서 쓸 이름을 정해요. 카카오 닉네임을 받았으면 미리 채워 두고, 없으면 빈칸이에요.
+  if (!user.user_metadata?.nickname_confirmed) {
+    const name = (await askNickname(me.nickname === DEFAULT_NICKNAME ? '' : me.nickname, true))!;
+    me.nickname = name;
+    await saveNickname(client, user.id, name).catch((err) => console.warn('[이름] 저장하지 못했어요. 다음 접속 때 다시 물어볼게요.', err));
+  }
+  mountAccountBadge(client, me, (name) => void roomView.renameMe(name));
   await startCloudSave(store, client, user.id).catch((err) =>
     console.warn('[클라우드 저장] 불러오지 못해서 이 브라우저의 데이터로 계속해요.', err),
   );
-  return { client, me: { id: user.id, nickname } };
+  return { client, me };
 }
 
 /** 한글 도트 폰트(갈무리, OFL 라이선스)를 불러와요. 실패해도 기본 글꼴로 계속 돌아가요. */

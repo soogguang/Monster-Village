@@ -62,6 +62,8 @@ export interface RoomBackend {
   /** 방에 들어가서 실시간으로 이어져요. 반환하는 함수를 부르면 연결을 끊어요. */
   enter(roomId: string, events: RoomEvents): Promise<() => void>;
   setFocus(focusingOn: string | null): void;
+  /** 내 이름(me.nickname)이 바뀌었을 때 접속 상태를 다시 보내요 */
+  refreshMe(): void;
   ringBell(toUserId: string): void;
 }
 
@@ -196,6 +198,10 @@ export class SupabaseRooms implements RoomBackend {
     if (this.channel) void this.track(this.channel);
   }
 
+  refreshMe(): void {
+    if (this.channel) void this.track(this.channel);
+  }
+
   ringBell(toUserId: string): void {
     void this.channel?.send({ type: 'broadcast', event: 'bell', payload: { from: this.me.nickname, to: toUserId } });
   }
@@ -283,6 +289,15 @@ export class RoomView {
     this.patch({ active: null, members: [], slots: [], tasks: [], online: [] });
     await this.refreshRooms();
     if (this.state.rooms[0]) await this.open(this.state.rooms[0]);
+  }
+
+  /** 내 이름을 바꾼 뒤: 멤버 목록과 접속 상태를 새로 고쳐서 방 친구 화면에도 새 이름이 보이게 해요 */
+  async renameMe(nickname: string): Promise<void> {
+    const { backend, active } = this.state;
+    if (!backend) return;
+    backend.me.nickname = nickname;
+    backend.refreshMe();
+    if (active) this.patch({ members: await backend.loadMembers(active.id) });
   }
 
   /** 나를 뺀 방 친구들 (들어온 순서) */

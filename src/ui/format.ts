@@ -60,6 +60,14 @@ export function heartsText(hearts: number): string {
   return '♥'.repeat(filled) + '♡'.repeat(max - filled) + (hearts > max ? ` +${hearts - max}` : '');
 }
 
+/** 동네에서 쓰는 이름: 앞뒤 공백을 빼고 1~12자. 규칙에 안 맞으면 null */
+export const NICKNAME_MAX = 12;
+export function cleanNickname(raw: string): string | null {
+  const name = raw.trim().replace(/\s+/g, ' ');
+  const length = [...name].length;
+  return length >= 1 && length <= NICKNAME_MAX ? name : null;
+}
+
 export function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 }

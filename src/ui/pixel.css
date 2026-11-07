@@ -201,6 +201,9 @@ button, input, select { font: inherit; color: inherit; }
 .login-box .small { font-size: 11px; }
 .login-actions { display: grid; gap: 8px; margin: 14px 0 10px; }
 .px-btn.kakao { background: #f7d94c; color: #3b2414; text-shadow: none; box-shadow: inset var(--px) var(--px) 0 #fff0a0, inset calc(var(--px) * -1) calc(var(--px) * -1) 0 #d1b230; }
+#account .account-name { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+#account .account-name:hover span { text-decoration: underline; }
+#nickname .px-input { width: 100%; margin: 6px 0 2px; }
 #account { position: fixed; top: 16px; right: 16px; z-index: 5; display: flex; align-items: center; gap: 8px; padding: 6px 8px; }
 
 /* 내 주민들 */

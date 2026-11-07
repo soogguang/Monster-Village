@@ -75,6 +75,9 @@ export class FakeRooms implements RoomBackend {
     const timer = window.setTimeout(() => events.onBell('지우', 'me'), 4000);
     return () => window.clearTimeout(timer);
   }
+  refreshMe() {
+    this.events?.onPresence([{ userId: 'me', nickname: this.me.nickname, focusingOn: this.myFocus }, ...this.online]);
+  }
   setFocus(focusingOn: string | null) {
     if (focusingOn === this.myFocus) return;
     this.myFocus = focusingOn;
