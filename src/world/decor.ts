@@ -154,6 +154,7 @@ export function yardDecor(yard: YardPlan): DecorItem[] {
 // ---------------------------------------------------------------- 광장과 마을 바깥
 
 export function plazaDecor(layout: VillageLayout): DecorItem[] {
+  if (!layout.hasPlaza) return [];
   const { plaza, anchors } = layout;
   const fire = anchors.campfire;
   const fx = fire.col + 0.5;
@@ -193,7 +194,7 @@ function isReserved(layout: VillageLayout, x: number, y: number, margin: number)
   const inRect = (rc: Rect, m: number) => x > rc.col - m && x < rc.col + rc.cols + m && y > rc.row - m && y < rc.row + rc.rows + m + 1;
   return (
     roadsOf(layout).some((road) => inRect(road, margin)) ||
-    inRect(layout.plaza, margin) ||
+    (layout.hasPlaza && inRect(layout.plaza, margin)) ||
     layout.yards.some((yd) => inRect(yd.rect, margin))
   );
 }
@@ -240,6 +241,7 @@ export function worldBlocks(layout: VillageLayout, decorations = villageDecor(la
   const foot = (x: number, y: number, w: number, h: number): Rect => ({ col: x - w / 2, row: y - h, cols: w, rows: h });
   const blocks = decorations.flatMap((d) => d.block ? [foot(d.x, d.y, d.block.w, d.block.h)] : []);
   for (const yard of layout.yards) blocks.push(foot(yard.house.col, yard.house.row + 0.9, HOUSE_TILES - 0.6, 1.6));
+  if (!layout.hasPlaza) return blocks;
   const { guardianTree: tree, campfire: fire, bell } = layout.anchors;
   blocks.push(foot(tree.col + 0.5, tree.row + 1, 4, 1.5));
   blocks.push(foot(fire.col + 0.5, fire.row + 1, 4.5, 1.8));

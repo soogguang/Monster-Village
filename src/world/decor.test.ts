@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { grassTileAt, themeOf, villageDecor, worldBlocks, yardDecor } from './decor';
-import { buildTiles, createVillageLayout, roadsOf, withMinWidth, type Rect } from './layout';
+import { buildTiles, createHomeLayout, createVillageLayout, roadsOf, withMinWidth, type Rect } from './layout';
 
 const overlaps = (x: number, y: number, rect: { col: number; row: number; cols: number; rows: number }) =>
   x > rect.col && x < rect.col + rect.cols && y > rect.row && y <= rect.row + rect.rows;
@@ -80,5 +80,25 @@ describe('마을 꾸미기', () => {
     }
     expect(visited.has(`${layout.anchors.campfire.col},${layout.anchors.campfire.row - 3}`)).toBe(true);
     expect(visited.has(`${layout.anchors.bell.col},${layout.anchors.bell.row + 1}`)).toBe(true);
+  });
+});
+
+describe('내 집 화면 꾸미기', () => {
+  const home = createHomeLayout('me');
+  const decor = villageDecor(home);
+
+  it('광장 소품은 없고, 마당 정원과 둘레 숲만 있어요', () => {
+    expect(decor.some((d) => d.key === 'decor-stump' || d.key === 'decor-noticeboard' || d.key === 'decor-lantern')).toBe(false);
+    const outside = decor.filter((d) => !overlaps(d.x, d.y, home.yards[0].rect));
+    expect(outside.length).toBeGreaterThan(20);
+  });
+
+  it('막히는 장식이 문 앞 길을 막지 않아요', () => {
+    for (const d of decor.filter((x) => x.block)) for (const road of roadsOf(home)) expect(overlaps(d.x, d.y, road)).toBe(false);
+  });
+
+  it('광장 물건의 부딪힘 상자도 없어요', () => {
+    const plain = worldBlocks(home, []);
+    expect(plain).toHaveLength(1); // 집 하나
   });
 });

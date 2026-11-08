@@ -222,13 +222,15 @@ export interface RoomViewState {
   slots: SlotAssignment[];
   tasks: RoomTask[];
   online: Presence[];
+  /** 방 마을에 들어가 있으면 true, 내 집에 있으면 false. 접속하면 항상 내 집에서 시작해요 */
+  inVillage: boolean;
 }
 
 const ACTIVE_KEY = 'monster-village:active-room';
 
 /** 방 상태를 한곳에 모아서, 방 창과 마을 화면이 같은 내용을 보게 해요. */
 export class RoomView {
-  state: RoomViewState = { backend: null, rooms: [], active: null, members: [], slots: [], tasks: [], online: [] };
+  state: RoomViewState = { backend: null, rooms: [], active: null, members: [], slots: [], tasks: [], online: [], inVillage: false };
   private listeners = new Set<(s: RoomViewState) => void>();
   private leaveChannel: (() => void) | null = null;
   /** 누가 나에게 종을 쳤을 때 */
@@ -272,12 +274,24 @@ export class RoomView {
     const room = await this.state.backend!.createRoom(name);
     await this.refreshRooms();
     await this.open(room);
+    this.enterVillage();
   }
 
   async join(code: string): Promise<void> {
     const room = await this.state.backend!.joinRoom(code);
     await this.refreshRooms();
     await this.open(room);
+    this.enterVillage();
+  }
+
+  /** 지금 고른 방의 마을로 가요. (방 연결은 집에 있을 때도 계속 이어져 있어요) */
+  enterVillage(): void {
+    if (this.state.active && !this.state.inVillage) this.patch({ inVillage: true });
+  }
+
+  /** 내 집으로 돌아와요. 방 친구들의 상태·종 알림은 계속 받아요. */
+  goHome(): void {
+    if (this.state.inVillage) this.patch({ inVillage: false });
   }
 
   async leave(): Promise<void> {
@@ -286,7 +300,7 @@ export class RoomView {
     this.leaveChannel?.();
     this.leaveChannel = null;
     await backend.leaveRoom(active.id);
-    this.patch({ active: null, members: [], slots: [], tasks: [], online: [] });
+    this.patch({ active: null, members: [], slots: [], tasks: [], online: [], inVillage: false });
     await this.refreshRooms();
     if (this.state.rooms[0]) await this.open(this.state.rooms[0]);
   }

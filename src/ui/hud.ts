@@ -113,8 +113,12 @@ export function mountHud(store: GameStore, characterDir: string): VillageActions
     if (w) open(w);
   });
 
-  const interactionWindows: Record<LandmarkId, GameWindow> = { tree: treeWindow, campfire: focusWindow, bell: bellWindow };
-  const interact = (id: LandmarkId) => open(interactionWindows[id]);
+  const interactionWindows: Record<Exclude<LandmarkId, 'home'>, GameWindow> = { tree: treeWindow, campfire: focusWindow, bell: bellWindow };
+  const interact = (id: LandmarkId) => {
+    // 방 마을에서 내 집을 누르면 내 집 화면으로 돌아가요.
+    if (id === 'home') { roomView.goHome(); toast('🏠 집으로 돌아왔어요. 방 마을은 방 창(G)에서 다시 갈 수 있어요.'); return; }
+    open(interactionWindows[id]);
+  };
   interactionButton.addEventListener('click', () => { if (nearby) interact(nearby); });
 
   // ----- 왼쪽 위 상태 상자: 시계, 지금 상태, 집중 시작·끝 -----
@@ -138,7 +142,8 @@ export function mountHud(store: GameStore, characterDir: string): VillageActions
     const focusTask = state.focus && state.tasks.find((t) => t.id === state.focus!.taskId);
     const presence = status.querySelector('.presence')!;
     presence.classList.toggle('focusing', Boolean(focusTask));
-    presence.querySelector('.state')!.textContent = focusTask ? '🔥 집중 중' : '마을에 있어요';
+    const place = roomView.state.inVillage && roomView.state.active ? `${roomView.state.active.name} 마을에 있어요` : '내 집에 있어요';
+    presence.querySelector('.state')!.textContent = focusTask ? '🔥 집중 중' : place;
     presence.querySelector('.task')!.textContent = focusTask ? focusTask.title : '';
     presence.querySelector('.timer')!.textContent = focusTask ? formatElapsed(now - state.focus!.startedAt) : '';
 

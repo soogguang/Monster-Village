@@ -182,7 +182,12 @@ button, input, select { font: inherit; color: inherit; }
 .dex-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 6px; }
 .dex-card { padding: 6px; text-align: center; background: var(--paper-light); border: 2px solid var(--paper-shade); }
 .dex-card img { width: 64px; height: 72px; image-rendering: pixelated; display: block; margin: 0 auto 4px; }
-.dex-card.locked img { filter: brightness(0) opacity(0.25); }
+.dex-card { user-select: none; -webkit-user-select: none; }
+/* 못 만난 주민: 그림 모양으로 오려 낸 단색 그림자 (실제 색은 화면에 그려지지 않아요) */
+.dex-silhouette {
+  width: 64px; height: 72px; margin: 0 auto 4px; background: rgba(43, 36, 51, 0.25);
+  -webkit-mask: var(--shape) center / contain no-repeat; mask: var(--shape) center / contain no-repeat;
+}
 .dex-card .name { font-size: 12px; }
 .dex-card .sub { font-size: 10px; color: var(--ink-soft); }
 .habit.done { border-color: var(--leaf); background: #eef8e4; }

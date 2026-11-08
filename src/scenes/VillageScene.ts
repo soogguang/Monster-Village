@@ -1,6 +1,7 @@
 // 동네 화면
-// - 방 멤버마다 마당과 집 (처음에는 좌우, 6명부터 광장을 둘러싸며 늘어나요)
-// - 아래쪽: 큰길과 광장 (수호나무 = 공동 할 일, 모닥불 = 같이 집중, 응원의 종)
+// - 내 집: 접속하면 내 마당 하나와 둘레 숲만 보여요.
+// - 방 마을(방 창에서 들어가요): 방 멤버마다 마당과 집 (처음에는 좌우, 6명부터 광장을 둘러싸며 늘어나요)
+//   아래쪽에 큰길과 광장 (수호나무 = 공동 할 일, 모닥불 = 같이 집중, 응원의 종). 내 집을 누르면 내 집으로 돌아가요.
 // 화면은 저장소(GameStore)와 방 상태(roomView)를 그대로 그리기만 해요.
 
 import Phaser from 'phaser';
@@ -8,7 +9,7 @@ import { FRIENDSHIP, TILE_SIZE, pickPixelScale } from '../config';
 import { roomView, type RoomViewState } from '../net/rooms';
 import { doughStage, type DoughStage, type Task } from '../rules/task';
 import type { GameState, GameStore, Resident } from '../store';
-import { buildTiles, createVillageLayout, withMinWidth, type Rect, type Spot, type VillageLayout, type YardPlan } from '../world/layout';
+import { buildTiles, createHomeLayout, createVillageLayout, withMinWidth, type Rect, type Spot, type VillageLayout, type YardPlan } from '../world/layout';
 import { MEADOW_TILES, grassTileAt, villageDecor, worldBlocks } from '../world/decor';
 import { LANDMARK_TEXT, canInteract, landmarkTargets, nearbyLandmark, type LandmarkId, type LandmarkTarget, type VillageActions } from '../world/interactions';
 import { makePlaceholderTextures } from './textures';
@@ -20,7 +21,7 @@ const PLAYER_SPEED = T * 5.6;
 const LABEL_FONT_PX = 13;
 /** 맵의 최소 폭(타일). 이보다 좁으면 양옆에 풀밭을 깔아요 */
 const MIN_WORLD_COLS = 72;
-/** 혼자일 때 내 마당의 주인 이름 */
+/** 로그인하지 않았을 때 내 마당의 주인 이름 */
 const SOLO_ID = 'me';
 /** 그리는 순서: 바닥 층은 맨 아래, 이름표는 맨 위. 나머지는 발밑 y값 (위쪽 마당은 y가 음수라 0보다 훨씬 아래에 둬요) */
 const DEPTH = { ground: -10_000_000, overlay: -9_999_999, flatDecor: -9_999_998, label: 10_000_000 } as const;
@@ -66,9 +67,10 @@ export class VillageScene extends Phaser.Scene {
   private yardSigns = new Map<string, Phaser.GameObjects.Text>();
   /** 친구 마당마다 지금 그려 둔 주민 그림 */
   private friendYards = new Map<string, { key: string; sprites: Phaser.GameObjects.Image[] }>();
-  private campfire!: Phaser.GameObjects.Sprite;
-  private campfireLabel!: Phaser.GameObjects.Text;
-  private treeLabel!: Phaser.GameObjects.Text;
+  // 광장 물건 (방 마을에서만 있어요)
+  private campfire: Phaser.GameObjects.Sprite | null = null;
+  private campfireLabel: Phaser.GameObjects.Text | null = null;
+  private treeLabel: Phaser.GameObjects.Text | null = null;
 
   constructor(
     private store: GameStore,
@@ -152,24 +154,29 @@ export class VillageScene extends Phaser.Scene {
 
   // ---------------------------------------------------------------- 마을 짓기
 
-  /** 방 멤버와 자리 배정으로 마을 배치를 정하고, 바뀌었을 때만 다시 지어요. */
+  /**
+   * 내 집인지 방 마을인지, 방 멤버와 자리 배정으로 배치를 정하고, 바뀌었을 때만 다시 지어요.
+   * 방 마을은 방 창에서 [이 방 마을로 가기]를 눌렀을 때만 그려요.
+   */
   private refreshLayout(): void {
     const rs = roomView.state;
-    const inRoom = rs.active !== null && rs.members.length > 0 && rs.backend !== null;
-    const memberIds = inRoom ? rs.members.map((m) => m.userId) : [SOLO_ID];
-    const myId = inRoom ? rs.backend!.me.id : SOLO_ID;
+    const inVillage = rs.inVillage && rs.active !== null && rs.members.length > 0 && rs.backend !== null;
+    // 로그인했으면 내 집도 내 아이디로 그려서, 방 마을의 내 마당과 정원 테마가 같아요.
+    const myId = rs.backend?.me.id ?? SOLO_ID;
     // 노트북(1배)에서도 화면이 맵보다 넓지 않게 최소 72칸(2,304px) 폭을 보장해요.
     // 아래쪽에는 버튼 줄에 광장이 가리지 않도록 풀밭 몇 줄을 더 깔아요.
-    const layout = withMinWidth(createVillageLayout(memberIds, inRoom ? rs.slots : []), MIN_WORLD_COLS, 4);
-    const key = JSON.stringify([myId, layout.assignments]);
+    const base = inVillage ? createVillageLayout(rs.members.map((m) => m.userId), rs.slots) : createHomeLayout(myId);
+    const layout = withMinWidth(base, MIN_WORLD_COLS, 4);
+    const key = JSON.stringify([inVillage, myId, layout.assignments]);
     if (key === this.layoutKey) return;
+    const placeChanged = this.layout?.hasPlaza !== layout.hasPlaza;
     const myYardBefore = this.myYard?.rect;
     this.layoutKey = key;
     this.layout = layout;
     this.myYard = layout.yards.find((y) => y.userId === myId)!;
     this.buildWorld();
-    // 처음이거나 내 마당 위치가 바뀌었으면 내 마당 문 앞에서 시작해요.
-    if (!myYardBefore || myYardBefore.col !== this.myYard.rect.col || myYardBefore.row !== this.myYard.rect.row) {
+    // 처음이거나, 집 ↔ 마을을 오갔거나, 내 마당 위치가 바뀌었으면 내 마당 문 앞에서 시작해요.
+    if (placeChanged || !myYardBefore || myYardBefore.col !== this.myYard.rect.col || myYardBefore.row !== this.myYard.rect.row) {
       const g = this.myYard.gate;
       this.player.setPosition((g.col + g.cols / 2) * T, (g.row - 5) * T);
     }
@@ -179,7 +186,7 @@ export class VillageScene extends Phaser.Scene {
 
   private buildWorld(): void {
     this.destroyWorld();
-    this.landmarks = landmarkTargets(this.layout);
+    this.landmarks = landmarkTargets(this.layout, this.myYard);
     const { bounds } = this.layout;
     const tiles = buildTiles(this.layout);
     const things: Phaser.GameObjects.GameObject[] = [];
@@ -204,7 +211,12 @@ export class VillageScene extends Phaser.Scene {
     for (const yard of this.layout.yards) {
       const x = yard.house.col * T;
       const y = (yard.house.row + 1) * T;
-      if (this.textures.exists(yard.house.texture)) things.push(this.add.image(x, y, yard.house.texture).setOrigin(0.5, 1).setDepth(y));
+      if (this.textures.exists(yard.house.texture)) {
+        const house = this.add.image(x, y, yard.house.texture).setOrigin(0.5, 1).setDepth(y);
+        // 방 마을에서는 내 집을 눌러 내 집으로 돌아가요.
+        if (this.layout.hasPlaza && yard === this.myYard) this.enableLandmark(house, 'home');
+        things.push(house);
+      }
       const sign = this.makeLabel((yard.gate.col + yard.gate.cols / 2) * T, (yard.gate.row + 1) * T + 4, '', '#ffffff')
         .setOrigin(0.5, 0).setBackgroundColor('#2b2433cc').setPadding(6, 2, 6, 2);
       things.push(sign);
@@ -220,21 +232,23 @@ export class VillageScene extends Phaser.Scene {
       things.push(this.add.image(x, y, d.key).setOrigin(0.5, 1).setDepth(d.layer === 'ground' ? DEPTH.flatDecor : y));
     }
 
-    // 광장: 수호나무(공동 할 일), 모닥불(같이 집중), 응원의 종
-    const { guardianTree, campfire, bell } = this.layout.anchors;
-    const tree = this.placeObject(guardianTree, 'pledge-tree');
-    this.enableLandmark(tree, 'tree');
-    this.treeLabel = this.plazaLabel(tree.x, tree.y + 4, '수호나무');
+    // 광장(방 마을에서만): 수호나무(공동 할 일), 모닥불(같이 집중), 응원의 종
+    if (this.layout.hasPlaza) {
+      const { guardianTree, campfire, bell } = this.layout.anchors;
+      const tree = this.placeObject(guardianTree, 'pledge-tree');
+      this.enableLandmark(tree, 'tree');
+      this.treeLabel = this.plazaLabel(tree.x, tree.y + 4, '수호나무');
 
-    this.campfire = this.add.sprite(...spotXY(campfire), 'campfire-01').setOrigin(0.5, 1).play('campfire-burn');
-    this.campfire.setDepth(this.campfire.y);
-    this.enableLandmark(this.campfire, 'campfire');
-    this.campfireLabel = this.plazaLabel(this.campfire.x, this.campfire.y + 4, '모닥불');
+      this.campfire = this.add.sprite(...spotXY(campfire), 'campfire-01').setOrigin(0.5, 1).play('campfire-burn');
+      this.campfire.setDepth(this.campfire.y);
+      this.enableLandmark(this.campfire, 'campfire');
+      this.campfireLabel = this.plazaLabel(this.campfire.x, this.campfire.y + 4, '모닥불');
 
-    const bellObj = this.placeObject(bell, 'bell');
-    this.enableLandmark(bellObj, 'bell');
-    const bellLabel = this.plazaLabel(bellObj.x, bellObj.y + 4, '응원의 종');
-    things.push(tree, this.campfire, bellObj, this.treeLabel, this.campfireLabel, bellLabel);
+      const bellObj = this.placeObject(bell, 'bell');
+      this.enableLandmark(bellObj, 'bell');
+      const bellLabel = this.plazaLabel(bellObj.x, bellObj.y + 4, '응원의 종');
+      things.push(tree, this.campfire, bellObj, this.treeLabel, this.campfireLabel, bellLabel);
+    }
 
     for (const area of worldBlocks(this.layout, decorations)) {
       this.block((area.col + area.cols / 2) * T, (area.row + area.rows / 2) * T, area.cols * T, area.rows * T);
@@ -264,6 +278,7 @@ export class VillageScene extends Phaser.Scene {
     for (const { sprites } of this.friendYards.values()) for (const s of sprites) { this.tweens.killTweensOf(s); s.destroy(); }
     this.friendYards.clear();
     this.yardSigns.clear();
+    this.campfire = this.campfireLabel = this.treeLabel = null;
     this.world = null;
   }
 
@@ -444,7 +459,7 @@ export class VillageScene extends Phaser.Scene {
     const online = new Map(rs.online.map((p) => [p.userId, p]));
     for (const yard of this.layout.yards) {
       const sign = this.yardSigns.get(yard.userId);
-      if (yard === this.myYard) { sign?.setText('내 마당'); continue; }
+      if (yard === this.myYard) { sign?.setText(this.layout.hasPlaza ? '내 마당' : '우리 집'); continue; }
       const friend = rs.members.find((m) => m.userId === yard.userId);
       const presence = online.get(yard.userId);
       const badge = presence?.focusingOn ? ' 🔥' : presence ? ' 🟢' : '';
@@ -458,6 +473,7 @@ export class VillageScene extends Phaser.Scene {
       this.friendYards.set(yard.userId, { key, sprites });
     }
 
+    if (!this.campfire || !this.campfireLabel || !this.treeLabel) return;
     const focusing = roomView.focusingCount();
     // 192×192 모닥불은 최대 1.4배. 좌석은 가장 커졌을 때도 바깥에 놓아요.
     this.campfire.setScale(1 + Math.min(focusing, 4) * 0.1);

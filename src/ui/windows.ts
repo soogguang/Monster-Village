@@ -420,8 +420,12 @@ export const dexWindow: GameWindow = {
         return `<h3>${name}</h3><div class="dex-grid">${items.map((c) => {
           const count = state.residents.find((r) => r.speciesId === c.id)?.hearts ?? 0;
           const lockedHabit = c.unlock && state.unlocks[c.unlock] === undefined ? HABIT_TEXT[c.unlock].name : '';
+          // 못 만난 주민은 실제 그림을 넣지 않고 모양만 딴 그림자를 보여줘요. (그림을 끌거나 눌러도 모습이 보이지 않게)
+          const picture = count
+            ? `<img src="${ctx.characterDir}${c.image}" alt="" draggable="false" />`
+            : `<div class="dex-silhouette" style="--shape:url('${ctx.characterDir}${encodeURI(c.image)}')"></div>`;
           return `<div class="dex-card ${count ? '' : 'locked'}">
-            <img src="${ctx.characterDir}${c.image}" alt="" />
+            ${picture}
             <div class="name">${count ? escapeHtml(c.name) : '???'}</div>
             <div class="sub">${count ? `${heartsText(count)}<br />${escapeHtml(c.personality ?? '')}` : lockedHabit ? `🔒 ${lockedHabit}` : '아직 못 만났어요'}</div>
           </div>`;
@@ -576,6 +580,9 @@ export const roomsWindow: GameWindow = {
           <button class="px-btn small ghost" data-act="copy" data-code="${room.inviteCode}">복사</button>
           <button class="px-btn small ghost" data-act="leave">방 나가기</button>
         </div>
+        ${section ? '' : `<div class="slot row">${rs.inVillage
+          ? '<span class="grow">🏘️ 지금 이 방 마을에 있어요. <span class="muted">내 집 앞에서 E를 누르거나 집을 누르면 집으로 돌아가요.</span></span>'
+          : '<span class="grow muted">🏠 지금은 내 집에 있어요. 친구들 집과 광장(모닥불·수호나무·종)은 방 마을에 있어요.</span><button class="px-btn small green" data-act="enter-village">🏘️ 이 방 마을로 가기</button>'}</div>`}
         ${section === 'members' ? '<p class="muted">응원을 보낼 친구를 골라 주세요.</p>' : ''}
         <div class="room-layout ${section ? 'single' : ''}">
           ${section !== 'tree' ? `<div><h3>👥 멤버 (🔥 ${rs.online.filter((p) => p.focusingOn).length}명 집중 중)</h3>${members}</div>` : ''}
@@ -606,6 +613,7 @@ export const roomsWindow: GameWindow = {
           case 'create': mode = 'create'; render(roomView.state); body.querySelector<HTMLInputElement>('.room-create input')?.focus(); break;
           case 'join': mode = 'join'; render(roomView.state); body.querySelector<HTMLInputElement>('.room-join input')?.focus(); break;
           case 'close-form': mode = 'none'; render(roomView.state); break;
+          case 'enter-village': roomView.enterVillage(); ctx.closeWindow(); break;
           case 'copy':
             await navigator.clipboard?.writeText(el.dataset.code!).catch(() => undefined);
             ctx.toast(`초대 코드 ${el.dataset.code}를 복사했어요. 친구에게 보내 주세요!`);

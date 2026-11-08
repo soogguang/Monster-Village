@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { HOUSE_TILES, assignSlots, buildTiles, cellAt, createVillageLayout, isBlocked, slotAt, withMinWidth, type VillageLayout } from './layout';
+import { HOUSE_TILES, assignSlots, buildTiles, cellAt, createHomeLayout, createVillageLayout, isBlocked, roadsOf, slotAt, withMinWidth, type VillageLayout } from './layout';
 
 /** 막힌 타일을 피해서 from에서 to까지 걸어갈 수 있는지 확인해요. (집·광장 물건은 화면 쪽 충돌이라 여기서는 울타리만 봐요) */
 function reachable(layout: VillageLayout, from: [number, number], to: [number, number]): boolean {
@@ -163,5 +163,37 @@ describe('사람이 늘면 둥글게 퍼져요', () => {
     const many = createVillageLayout(Array.from({ length: 40 }, (_, i) => `u${i}`));
     expect(many.avenues).toHaveLength(2);
     expect(many.streets).toHaveLength(new Set(many.yards.map((y) => y.rect.row)).size);
+  });
+});
+
+describe('내 집 화면 (방 마을에 들어가기 전)', () => {
+  const home = createHomeLayout('me');
+
+  it('내 마당 하나만 있고 광장·큰길은 없어요. 마당 자리는 방 마을의 0번 자리와 같아요', () => {
+    expect(home.hasPlaza).toBe(false);
+    expect(home.yards).toHaveLength(1);
+    expect(home.yards[0].rect).toEqual(createVillageLayout(['me']).yards[0].rect);
+    expect(home.avenues).toEqual([]);
+    // 돌바닥은 집 앞 테라스뿐이고, 마당 밖(광장 자리)에는 깔지 않아요.
+    const { ground, bounds } = buildTiles(home);
+    const { rect } = home.yards[0];
+    ground.forEach((line, r) => line.forEach((t, c) => {
+      const row = r + bounds.row;
+      const col = c + bounds.col;
+      if (t === 'stone') expect(row >= rect.row && row < rect.row + rect.rows && col >= rect.col && col < rect.col + rect.cols).toBe(true);
+    }));
+  });
+
+  it('남쪽 문 앞에는 짧은 흙길만 있고, 문 앞에서 마당 안까지 걸어갈 수 있어요', () => {
+    const yard = home.yards[0];
+    expect(roadsOf(home)).toEqual([{ col: yard.gate.col, row: yard.gate.row + 1, cols: 3, rows: 4 }]);
+    expect(reachable(home, [yard.gate.col + 1, yard.gate.row + 3], [yard.rect.col + 2, yard.rect.row + 15])).toBe(true);
+  });
+
+  it('맵이 마당보다 넉넉해서 둘레에 숲과 풀밭이 보여요', () => {
+    const { rect } = home.yards[0];
+    expect(home.bounds.col).toBeLessThan(rect.col - 10);
+    expect(home.bounds.col + home.bounds.cols).toBeGreaterThan(rect.col + rect.cols + 10);
+    expect(home.bounds.row + home.bounds.rows).toBeGreaterThan(rect.row + rect.rows + 8);
   });
 });

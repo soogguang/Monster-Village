@@ -34,6 +34,8 @@ export interface YardPlan {
 }
 
 export interface VillageLayout {
+  /** 방 마을이면 true(광장·큰길 있음), 내 집 화면이면 false(내 마당 하나만) */
+  hasPlaza: boolean;
   assignments: SlotAssignment[];
   yards: YardPlan[];
   /** 마당 줄마다 남쪽에 난 가로길 */
@@ -222,6 +224,7 @@ export function createVillageLayout(memberIds: string[], previous: SlotAssignmen
   const bottom = Math.max(...allRects.map((r) => r.row + r.rows)) + TEMPLATE.boundsPaddingRows.bottom;
   const pad = TEMPLATE.boundsPaddingCols;
   return {
+    hasPlaza: true,
     assignments: [...assignments].map(([userId, slot]) => ({ userId, slot })),
     yards,
     streets,
@@ -237,9 +240,34 @@ export function createVillageLayout(memberIds: string[], previous: SlotAssignmen
   };
 }
 
-/** 가로길·세로길·광장 연결 길 전부 */
+/**
+ * 내 집 화면: 방 마을에 들어가기 전, 내 마당 하나와 둘레 풀밭·숲만 있어요. 광장과 큰길은 없어요.
+ * 마당 좌표는 방 마을의 0번 자리와 같아서, 집 그림·정원 배치가 그대로예요.
+ */
+export const HOME_MARGIN = { cols: 22, top: 6, bottom: 12 } as const;
+export function createHomeLayout(userId: string): VillageLayout {
+  const village = createVillageLayout([userId]);
+  const yard = village.yards[0];
+  const { rect, gate } = yard;
+  // 남쪽 문 앞에는 짧은 흙길만 내요.
+  const frontPath: Rect = { col: gate.col, row: gate.row + 1, cols: gate.cols, rows: 4 };
+  return {
+    ...village,
+    hasPlaza: false,
+    streets: [frontPath],
+    avenues: [],
+    bounds: {
+      col: rect.col - HOME_MARGIN.cols,
+      row: rect.row - HOME_MARGIN.top,
+      cols: rect.cols + HOME_MARGIN.cols * 2,
+      rows: rect.rows + HOME_MARGIN.top + HOME_MARGIN.bottom,
+    },
+  };
+}
+
+/** 가로길·세로길·광장 연결 길 전부 (내 집 화면이면 문 앞 길만) */
 export function roadsOf(layout: VillageLayout): Rect[] {
-  return [...layout.streets, ...layout.avenues, layout.plazaConnector];
+  return [...layout.streets, ...layout.avenues, ...(layout.hasPlaza ? [layout.plazaConnector] : [])];
 }
 
 /**
@@ -282,7 +310,7 @@ export function buildTiles(layout: VillageLayout): TileGrid {
   };
 
   for (const road of roadsOf(layout)) fill(road, 'dirt');
-  fill(layout.plaza, 'stone');
+  if (layout.hasPlaza) fill(layout.plaza, 'stone');
 
   for (const yard of layout.yards) {
     const { col, row, cols, rows } = yard.rect;
