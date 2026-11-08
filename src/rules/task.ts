@@ -15,9 +15,20 @@ export interface Task {
   completedAt?: number;
   /** 달력에 보이는 방식: 마감일에만 표시(due) 또는 시작~마감 기간 막대(range). 예전 데이터는 없을 수 있어요. */
   calendarStyle?: CalendarStyle;
+  /** 달력·목록에서 쓰는 색. 예전 데이터는 없을 수 있어요(기본 하늘색) */
+  color?: TaskColor;
 }
 
 export type CalendarStyle = 'due' | 'range';
+
+/** 할 일마다 고를 수 있는 색 */
+export const TASK_COLORS = ['sky', 'leaf', 'yellow', 'orange', 'pink', 'purple', 'brown', 'gray'] as const;
+export type TaskColor = (typeof TASK_COLORS)[number];
+export const DEFAULT_TASK_COLOR: TaskColor = 'sky';
+
+export function isTaskColor(value: unknown): value is TaskColor {
+  return typeof value === 'string' && (TASK_COLORS as readonly string[]).includes(value);
+}
 
 /** 반죽 단계: 말랑 반죽 → 심술 반죽 → 찐 몬스터 */
 export type DoughStage = 'soft' | 'grumpy' | 'monster';
@@ -30,10 +41,10 @@ export interface ResidentResult {
 }
 
 export function createTask(
-  input: Pick<Task, 'id' | 'title' | 'startAt' | 'dueAt'> & { calendarStyle?: CalendarStyle },
+  input: Pick<Task, 'id' | 'title' | 'startAt' | 'dueAt'> & { calendarStyle?: CalendarStyle; color?: TaskColor },
 ): Task {
   assertValidPeriod(input.startAt, input.dueAt);
-  return { calendarStyle: 'due', ...input, focusMinutes: 0, dueExtensions: 0 };
+  return { calendarStyle: 'due', color: DEFAULT_TASK_COLOR, ...input, focusMinutes: 0, dueExtensions: 0 };
 }
 
 /**

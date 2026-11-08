@@ -5,7 +5,7 @@ import { pickResident, type CatalogEntry } from './rules/catalog';
 import { isAvatarId, normalizeAvatarId, type AvatarId } from './avatars';
 import { friendshipStage, residentKey, type FriendshipStage } from './rules/friendship';
 import { HABIT_IDS, achievedHabits, localDayKey, type FocusSession, type HabitId } from './rules/habits';
-import { addFocus, createTask, decideResident, extendDue, type CalendarStyle, type ResidentKind, type Task } from './rules/task';
+import { addFocus, createTask, decideResident, extendDue, type CalendarStyle, type ResidentKind, type Task, type TaskColor } from './rules/task';
 
 export interface Resident {
   id: string;
@@ -106,9 +106,9 @@ export class GameStore {
     return () => this.listeners.delete(fn);
   }
 
-  addTask(title: string, startAt: number, dueAt: number, calendarStyle: CalendarStyle = 'due'): Task {
+  addTask(title: string, startAt: number, dueAt: number, calendarStyle: CalendarStyle = 'due', color?: TaskColor): Task {
     if (!title.trim()) throw new Error('제목을 적어 주세요.');
-    const task = createTask({ id: newId(), title: title.trim(), startAt, dueAt, calendarStyle });
+    const task = createTask({ id: newId(), title: title.trim(), startAt, dueAt, calendarStyle, ...(color ? { color } : {}) });
     this.set({ ...this.state, tasks: [...this.state.tasks, task] });
     return task;
   }
@@ -121,7 +121,7 @@ export class GameStore {
    * 할 일의 제목과 날짜를 고쳐요.
    * 마감일을 뒤로 미루면 "마감 연장"으로 기록돼요. (꼼수 방지 규칙) 앞당기는 건 기록하지 않아요.
    */
-  updateTask(taskId: string, changes: { title: string; startAt: number; dueAt: number; calendarStyle?: CalendarStyle }): void {
+  updateTask(taskId: string, changes: { title: string; startAt: number; dueAt: number; calendarStyle?: CalendarStyle; color?: TaskColor }): void {
     const task = this.state.tasks.find((t) => t.id === taskId);
     if (!task) throw new Error('없는 할 일이에요.');
     if (task.completedAt !== undefined) throw new Error('끝낸 할 일은 고칠 수 없어요.');
@@ -135,6 +135,7 @@ export class GameStore {
       startAt: changes.startAt,
       dueAt: changes.dueAt,
       calendarStyle: changes.calendarStyle ?? task.calendarStyle ?? 'due',
+      color: changes.color ?? task.color,
       dueExtensions: task.dueExtensions + (extended ? 1 : 0),
     };
     this.set({ ...this.state, tasks: this.state.tasks.map((t) => (t.id === taskId ? next : t)) });

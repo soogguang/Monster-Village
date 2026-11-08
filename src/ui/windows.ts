@@ -5,7 +5,8 @@ import { FRIENDSHIP, RULES } from '../config';
 import { roomView, type RoomViewState } from '../net/rooms';
 import { friendshipStage } from '../rules/friendship';
 import { HABIT_IDS } from '../rules/habits';
-import { doughStage, progressRatio, type CalendarStyle, type Task } from '../rules/task';
+import { TASK_COLORS, doughStage, isTaskColor, progressRatio, type CalendarStyle, type Task, type TaskColor } from '../rules/task';
+import { TASK_COLOR_STYLE, colorOf, layoutWeek } from './calendarLayout';
 import type { GameState, GameStore, Resident } from '../store';
 import {
   DAY, HABIT_TEXT, RESIDENT_TEXT, STAGE_TEXT, WEEKDAYS, heartsText,
@@ -157,7 +158,7 @@ export const tasksWindow: GameWindow = {
           ctx.toast(`🫧 "${title.trim()}" 반죽이 마당에 생겼어요! (오늘만 할 일)`);
         } else if (form.classList.contains('new')) {
           const values = readTaskForm(form);
-          ctx.store.addTask(values.title, values.startAt, values.dueAt, values.calendarStyle);
+          ctx.store.addTask(values.title, values.startAt, values.dueAt, values.calendarStyle, values.color);
           form.reset();
           resetTaskForm(form, Date.now(), Date.now() + DAY);
           form.hidden = true;
@@ -192,7 +193,7 @@ function taskSlot(t: Task, state: GameState, inToday: boolean): string {
   return `
     <div class="slot ${focusing ? 'focusing' : ''}">
       <div class="row">
-        <span class="grow">${escapeHtml(t.title)}</span>
+        <span class="grow">${colorDot(t)}${escapeHtml(t.title)}</span>
         ${t.dueExtensions ? `<span class="badge warn">연장 ${t.dueExtensions}회 👀</span>` : ''}
         <span class="badge">${focusing ? '😪 졸림' : STAGE_TEXT[doughStage(t, now)]}</span>
       </div>
@@ -207,13 +208,13 @@ function taskSlot(t: Task, state: GameState, inToday: boolean): string {
 }
 
 function editSlot(t: Task): string {
-  return `<form class="slot edit" data-id="${t.id}">${taskFormFields(t.startAt, t.dueAt, t.title, t.calendarStyle ?? 'due')}
+  return `<form class="slot edit" data-id="${t.id}">${taskFormFields(t.startAt, t.dueAt, t.title, t.calendarStyle ?? 'due', colorOf(t))}
     <div class="meta">마감을 뒤로 미루면 "마감 연장"으로 기록돼요.</div>
     <div class="actions"><button class="px-btn small green">저장</button><button type="button" class="px-btn small ghost" data-act="cancel-edit">취소</button></div>
     <p class="form-error" hidden></p></form>`;
 }
 
-function taskFormFields(startAt: number, dueAt: number, title: string, style: CalendarStyle): string {
+function taskFormFields(startAt: number, dueAt: number, title: string, style: CalendarStyle, color: TaskColor = 'sky'): string {
   return `<div class="form-grid">
     <input class="px-input full" name="title" placeholder="할 일 (예: 보고서 쓰기)" maxlength="40" required value="${escapeHtml(title)}" />
     <label>시작</label><input class="px-input" name="start" type="datetime-local" required value="${toLocalInput(startAt)}" />
@@ -223,6 +224,10 @@ function taskFormFields(startAt: number, dueAt: number, title: string, style: Ca
       <label><input type="radio" name="style" value="due" ${style === 'due' ? 'checked' : ''} /> 📌 마감일만 표시</label>
       <label><input type="radio" name="style" value="range" ${style === 'range' ? 'checked' : ''} /> ▬ 시작~마감 기간 표시</label>
     </div>
+    <label>색</label>
+    <div class="full-rest color-pick">${TASK_COLORS.map((c) => `<label title="${TASK_COLOR_STYLE[c].name}">
+      <input type="radio" name="color" value="${c}" ${c === color ? 'checked' : ''} aria-label="${TASK_COLOR_STYLE[c].name}" />
+      <span class="swatch" style="--bg:${TASK_COLOR_STYLE[c].bg};--edge:${TASK_COLOR_STYLE[c].edge}"></span></label>`).join('')}</div>
   </div>`;
 }
 
@@ -233,6 +238,7 @@ function readTaskForm(form: HTMLFormElement) {
     startAt: fromLocalInput(String(data.get('start'))),
     dueAt: fromLocalInput(String(data.get('due'))),
     calendarStyle: (data.get('style') === 'range' ? 'range' : 'due') as CalendarStyle,
+    color: isTaskColor(data.get('color')) ? (data.get('color') as TaskColor) : undefined,
   };
 }
 
@@ -281,20 +287,28 @@ export const calendarWindow: GameWindow = {
       body.querySelector('.title')!.textContent = `${month.getFullYear()}년 ${month.getMonth() + 1}월`;
       const first = new Date(month);
       first.setDate(1 - first.getDay());
-      let html = WEEKDAYS.map((w) => `<div class="wd">${w}</div>`).join('');
-      for (let i = 0; i < 42; i++) {
-        const day = new Date(first); day.setDate(first.getDate() + i);
-        const dayStart = day.getTime();
-        const items = tasksOnDay(state.tasks, dayStart);
-        const chips = items.slice(0, 3).map(({ task, isDue, isStart }) => {
-          const range = (task.calendarStyle ?? 'due') === 'range';
-          const cls = ['cal-chip', range ? 'range' : '', range && !isStart ? 'cont' : '', isDue ? 'due' : '', task.completedAt !== undefined ? 'done' : ''].join(' ');
-          const label = range && !isStart && day.getDay() !== 0 ? (isDue ? '📌' : '&nbsp;') : `${isDue ? '📌' : ''}${escapeHtml(task.title)}`;
-          return `<div class="${cls}" title="${escapeHtml(task.title)}">${label}</div>`;
+      // 맥 캘린더처럼: 기간 할 일은 칸을 가로지르는 막대(주마다 같은 줄), 마감일만 할 일은 "● 제목 시각" 한 줄
+      let html = `<div class="cal-weekdays">${WEEKDAYS.map((w) => `<div class="wd">${w}</div>`).join('')}</div>`;
+      for (let week = 0; week < 6; week++) {
+        const days = Array.from({ length: 7 }, (_, i) => { const d = new Date(first); d.setDate(first.getDate() + week * 7 + i); return d; });
+        const layout = layoutWeek(state.tasks, days.map((d) => d.getTime()));
+        const cells = days.map((day, col) => {
+          const dayStart = day.getTime();
+          const cell = layout.cells[col];
+          // 줄마다: 막대가 지나가는 줄은 비워 두고(막대는 위에 겹쳐 그려요), 나머지 줄에 한 줄 할 일
+          const rows = cell.rows.map((t) => t === null ? '<div class="cal-slot"></div>'
+            : `<div class="cal-slot cal-item ${t.completedAt !== undefined ? 'done' : ''}" title="${escapeHtml(t.title)}">${colorDot(t)}<span class="t">${escapeHtml(t.title)}</span>${dueTime(t.dueAt)}</div>`).join('');
+          const more = cell.hidden ? `<div class="cal-more">+${cell.hidden}개</div>` : '';
+          const cls = ['cal-day', day.getMonth() !== month.getMonth() ? 'other' : '', dayStart === today ? 'today' : '', dayStart === selected ? 'selected' : '', inDrag(dayStart) ? 'dragging' : ''].join(' ');
+          return `<div class="${cls}" data-day="${dayStart}"><span class="num">${day.getDate()}</span>${rows}${more}</div>`;
         }).join('');
-        const more = items.length > 3 ? `<div class="cal-more">+${items.length - 3}</div>` : '';
-        const cls = ['cal-day', day.getMonth() !== month.getMonth() ? 'other' : '', dayStart === today ? 'today' : '', dayStart === selected ? 'selected' : '', inDrag(dayStart) ? 'dragging' : ''].join(' ');
-        html += `<div class="${cls}" data-day="${dayStart}"><span class="num">${day.getDate()}</span>${chips}${more}</div>`;
+        const bars = layout.bars.map((b) => {
+          const { bg, edge } = TASK_COLOR_STYLE[colorOf(b.task)];
+          const cls = ['cal-bar', b.fromBefore ? 'from-before' : '', b.toAfter ? 'to-after' : '', b.task.completedAt !== undefined ? 'done' : ''].join(' ');
+          return `<div class="${cls}" title="${escapeHtml(b.task.title)}" style="--c:${b.startCol};--s:${b.endCol - b.startCol + 1};--lane:${b.lane};--bg:${bg};--edge:${edge}">
+            <span class="t">${escapeHtml(b.task.title)}</span>${b.dueInWeek ? '<span class="pin">📌</span>' : ''}</div>`;
+        }).join('');
+        html += `<div class="cal-week">${cells}<div class="cal-bars">${bars}</div></div>`;
       }
       grid.innerHTML = html;
 
@@ -302,7 +316,7 @@ export const calendarWindow: GameWindow = {
       body.querySelector('.day-title')!.textContent = `${d.getMonth() + 1}월 ${d.getDate()}일 (${WEEKDAYS[d.getDay()]})`;
       const items = tasksOnDay(state.tasks, selected);
       body.querySelector('.day-list')!.innerHTML = items.length
-        ? items.map(({ task, isDue }) => `<div class="slot"><div class="row"><span class="grow">${task.completedAt !== undefined ? '✅ ' : ''}${escapeHtml(task.title)}</span>${isDue ? '<span class="badge warn">마감</span>' : ''}</div><div class="meta">${formatDate(task.startAt)} → ${formatDate(task.dueAt)}</div></div>`).join('')
+        ? items.map(({ task, isDue }) => `<div class="slot"><div class="row"><span class="grow">${task.completedAt !== undefined ? '✅ ' : ''}${colorDot(task)}${escapeHtml(task.title)}</span>${isDue ? '<span class="badge warn">마감</span>' : ''}</div><div class="meta">${formatDate(task.startAt)} → ${formatDate(task.dueAt)}</div></div>`).join('')
         : '<div class="empty">이 날 표시된 할 일이 없어요.</div>';
     };
 
@@ -363,7 +377,7 @@ export const calendarWindow: GameWindow = {
       const error = form.querySelector<HTMLElement>('.form-error')!;
       try {
         const values = readTaskForm(form);
-        ctx.store.addTask(values.title, values.startAt, values.dueAt, values.calendarStyle);
+        ctx.store.addTask(values.title, values.startAt, values.dueAt, values.calendarStyle, values.color);
         draft = null;
         renderDraft();
         ctx.toast(`🫧 "${values.title.trim()}" 반죽이 마당에 생겼어요!`);
@@ -394,6 +408,20 @@ function tasksOnDay(tasks: Task[], dayStart: number): { task: Task; isDue: boole
     .map((task) => ({ task, isDue: inDay(task.dueAt), isStart: inDay(task.startAt) }))
     // 기간 막대가 날마다 같은 줄에 이어져 보이도록 기간 할 일을 항상 위에 둬요.
     .sort((a, b) => rangeFirst(a.task) - rangeFirst(b.task) || a.task.startAt - b.task.startAt || a.task.dueAt - b.task.dueAt);
+}
+
+/** 할 일 색 동그라미 (끝낸 일은 회색) */
+function colorDot(t: Task): string {
+  const { edge } = TASK_COLOR_STYLE[t.completedAt !== undefined ? 'gray' : colorOf(t)];
+  return `<span class="color-dot" style="--edge:${edge}"></span>`;
+}
+
+/** 마감 시각. 그날 끝(23:59)이면 하루 종일 일이라 시각을 적지 않아요 */
+function dueTime(ms: number): string {
+  const d = new Date(ms);
+  if (d.getHours() === 23 && d.getMinutes() === 59) return '';
+  const h = d.getHours();
+  return `<span class="time">${h < 12 ? '오전' : '오후'} ${h % 12 || 12}${d.getMinutes() ? `:${String(d.getMinutes()).padStart(2, '0')}` : '시'}</span>`;
 }
 
 function rangeFirst(t: Task): number {
@@ -750,7 +778,7 @@ const HELP_SECTIONS: { id: string; title: string; html: string }[] = [
       <li><b>오늘 할 일</b>에는 내가 오늘 하기로 고른 일만 들어가요. <b>[오늘 할 수 있는 일 가져오기]</b>로 골라 오거나, <b>오늘만 할 일</b>을 바로 추가해요.</li>
       <li>오늘 못 끝낸 일은 내일 자동으로 넘어가지 않고, 내일 다시 고를 수 있어요.</li>
       <li>캘린더(<kbd>C</kbd>)에서 날짜를 <b>클릭</b>하면 그날이 마감인 할 일, 여러 날을 <b>끌면</b> 기간 할 일을 바로 추가해요.</li>
-      <li>할 일마다 캘린더에 📌 마감일만 / ▬ 기간 중 어떻게 보일지 고를 수 있어요.</li>
+      <li>할 일마다 캘린더에 📌 마감일만 / ▬ 기간 중 어떻게 보일지와 <b>색</b>을 고를 수 있어요. 기간 할 일은 날짜를 가로지르는 막대로, 마감일만 할 일은 "● 제목 시각" 한 줄로 보여요.</li>
     </ul>`,
   },
   {
