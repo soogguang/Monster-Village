@@ -93,9 +93,11 @@ button, input, select { font: inherit; color: inherit; }
 #toolbar {
   position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 5;
   display: flex; gap: 6px; padding: 8px;
+  max-width: calc(100vw - 32px); box-sizing: border-box;
 }
 #toolbar .tool {
   width: 64px; height: 60px; padding: 4px 0 0; display: grid; place-items: center; gap: 0; font-size: 11px;
+  min-width: 42px;
 }
 #toolbar .tool .icon { font-size: 22px; line-height: 1; text-shadow: none; }
 #toolbar .tool kbd { font: inherit; font-size: 9px; opacity: 0.85; }
@@ -231,6 +233,27 @@ button, input, select { font: inherit; color: inherit; }
 .hearts { color: var(--berry); letter-spacing: 1px; }
 .yard-toggle { white-space: nowrap; cursor: pointer; font-size: 11px; }
 .slot.hidden-resident { opacity: 0.6; }
+
+/* 내 모습 */
+.avatar-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.avatar-card {
+  display: grid; justify-items: center; gap: 8px; padding: 12px 8px; min-width: 0; cursor: pointer;
+  background: var(--paper-light); border: 3px solid var(--paper-shade);
+}
+.avatar-card[aria-pressed='true'] { border-color: var(--leaf); background: #edf3d8; }
+.avatar-card:focus-visible { outline: 3px solid var(--wood-dark); outline-offset: 2px; }
+.avatar-description { color: var(--ink-soft); font-size: 11px; line-height: 1.5; text-align: center; }
+.avatar-preview {
+  display: block; width: 128px; height: 144px; background-size: 640px 432px; image-rendering: pixelated;
+  background-position: 0 0; animation: avatar-walk .5s steps(4) infinite;
+}
+@keyframes avatar-walk { from { background-position: -128px 0; } to { background-position: -640px 0; } }
+@media (prefers-reduced-motion: reduce) { .avatar-preview { animation: none; } }
+@media (max-width: 480px) { .avatar-grid { grid-template-columns: 1fr; } }
+@media (max-width: 600px) {
+  #help-button { bottom: 112px; }
+  #movement-help, #world-interaction { max-width: calc(100vw - 120px); }
+}
 
 /* 방 */
 .window[data-id='rooms'] { width: min(900px, calc(100vw - 48px)); }

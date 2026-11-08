@@ -3,6 +3,7 @@
 
 import { FRIENDSHIP, RULES } from '../config';
 import { roomView, type RoomViewState } from '../net/rooms';
+import { AVATARS, type AvatarId } from '../avatars';
 import { friendshipStage } from '../rules/friendship';
 import { HABIT_IDS } from '../rules/habits';
 import { doughStage, progressRatio, type CalendarStyle, type Task } from '../rules/task';
@@ -685,7 +686,8 @@ const HELP_SECTIONS: { id: string; title: string; html: string }[] = [
     html: `<ul>
       <li><b>이동:</b> 방향키 또는 W·A·S·D</li>
       <li><b>사물 쓰기:</b> 수호나무·모닥불·종·우리 집 가까이에서 <kbd>E</kbd> 또는 그림을 클릭</li>
-      <li><b>창 열기:</b> 아래 버튼 줄 또는 단축키 — <kbd>T</kbd> 할 일 · <kbd>C</kbd> 캘린더 · <kbd>B</kbd> 도감 · <kbd>R</kbd> 내 주민 · <kbd>G</kbd> 방 · <kbd>H</kbd> 사용 방법</li>
+      <li><b>창 열기:</b> 아래 버튼 줄 또는 단축키 — <kbd>T</kbd> 할 일 · <kbd>C</kbd> 캘린더 · <kbd>B</kbd> 도감 · <kbd>R</kbd> 내 주민 · <kbd>V</kbd> 내 모습 · <kbd>G</kbd> 방 · <kbd>H</kbd> 사용 방법</li>
+      <li><b>내 모습:</b> <kbd>V</kbd>에서 숲길·민트·라벤더 중 골라요. 선택은 저장되고, 걸을 때는 양쪽 다리와 발이 번갈아 움직여요.</li>
       <li><b>창 닫기:</b> <kbd>Esc</kbd> 또는 오른쪽 위 ✕</li>
     </ul>`,
   },
@@ -774,4 +776,31 @@ export const helpWindow: GameWindow = {
   },
 };
 
-export const WINDOWS: GameWindow[] = [tasksWindow, calendarWindow, dexWindow, residentsWindow, roomsWindow];
+export const avatarWindow: GameWindow = {
+  id: 'avatar', title: '내 모습 고르기', icon: '🧑', key: 'V', label: '내 모습',
+  mount(body, ctx) {
+    let current: AvatarId | null = null;
+    const render = (state: GameState) => {
+      if (current === state.avatarId) return;
+      const focused = body.querySelector<HTMLElement>(':focus')?.dataset.avatarId;
+      current = state.avatarId;
+      body.innerHTML = `<p class="muted">마을에서 함께 걸어 다닐 내 모습을 골라 주세요. 언제든 바꿀 수 있어요.</p>
+        <div class="avatar-grid">${AVATARS.map((avatar) => `<button type="button" class="avatar-card" data-avatar-id="${avatar.id}" aria-pressed="${state.avatarId === avatar.id}">
+          <span class="avatar-preview" style="background-image:url('${ctx.characterDir}avatars/${avatar.id}-walk.png')" aria-hidden="true"></span>
+          <strong>${avatar.name}</strong><span class="avatar-description">${avatar.description}</span>
+          <span class="badge">${state.avatarId === avatar.id ? '✓ 선택됨' : '이 모습으로 바꾸기'}</span>
+        </button>`).join('')}</div>`;
+      if (focused) body.querySelector<HTMLButtonElement>(`[data-avatar-id="${focused}"]`)?.focus({ preventScroll: true });
+    };
+    body.addEventListener('click', (event) => {
+      const id = (event.target as HTMLElement).closest<HTMLElement>('[data-avatar-id]')?.dataset.avatarId;
+      if (!id) return;
+      try { ctx.store.chooseAvatar(id); }
+      catch (error) { ctx.toast((error as Error).message); }
+    });
+    render(ctx.store.get());
+    return ctx.store.subscribe(render);
+  },
+};
+
+export const WINDOWS: GameWindow[] = [tasksWindow, calendarWindow, dexWindow, residentsWindow, avatarWindow, roomsWindow];

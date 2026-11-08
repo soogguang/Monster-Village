@@ -23,6 +23,34 @@ function setup(rng = 0.99) {
 }
 
 describe('GameStore', () => {
+  it('내 모습을 바꿔도 할 일은 유지되고, 다시 접속하면 선택한 모습으로 시작해요', () => {
+    const { store, storage, start } = setup();
+    const task = store.addTask('계속할 일', start, start + DAY);
+    store.chooseAvatar('mint');
+    const restored = new GameStore(storage);
+    expect(restored.get().avatarId).toBe('mint');
+    expect(restored.get().tasks).toEqual([task]);
+  });
+
+  it('클라우드의 외형 선택을 불러오고, 외형 항목이 없던 예전 저장도 읽어요', () => {
+    const { store, start } = setup();
+    const task = store.addTask('예전 할 일', start, start + DAY);
+    store.replaceState({ tasks: [task], avatarId: 'lavender' });
+    expect(store.get().avatarId).toBe('lavender');
+    store.replaceState({ tasks: [task] });
+    expect(store.get().avatarId).toBe('forest');
+    expect(store.get().tasks).toEqual([task]);
+  });
+
+  it('알 수 없는 저장 외형은 기본 모습으로 복원하고, 잘못된 선택은 데이터를 바꾸지 않아요', () => {
+    const { store } = setup();
+    store.replaceState(JSON.parse('{"avatarId":"unavailable-avatar"}'));
+    expect(store.get().avatarId).toBe('forest');
+    store.chooseAvatar('lavender');
+    expect(() => store.chooseAvatar('unavailable-avatar')).toThrow();
+    expect(store.get().avatarId).toBe('lavender');
+  });
+
   it('할 일을 등록하면 저장돼요', () => {
     const { store, storage, start } = setup();
     store.addTask('  보고서 ', start, start + 10 * DAY);

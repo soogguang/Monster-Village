@@ -2,6 +2,7 @@
 // 지금은 브라우저(localStorage)에 임시로 저장해요. Supabase를 연결하면 Storage 구현만 바꿔요.
 
 import { pickResident, type CatalogEntry } from './rules/catalog';
+import { isAvatarId, normalizeAvatarId, type AvatarId } from './avatars';
 import { friendshipStage, residentKey, type FriendshipStage } from './rules/friendship';
 import { HABIT_IDS, achievedHabits, localDayKey, type FocusSession, type HabitId } from './rules/habits';
 import { addFocus, createTask, decideResident, extendDue, type CalendarStyle, type ResidentKind, type Task } from './rules/task';
@@ -29,6 +30,8 @@ export interface Focus {
 }
 
 export interface GameState {
+  /** 내가 고른 플레이어 외형 (할 일·주민과 함께 저장돼요) */
+  avatarId: AvatarId;
   tasks: Task[];
   residents: Resident[];
   focus: Focus | null;
@@ -91,6 +94,11 @@ export class GameStore {
 
   get(): GameState {
     return this.state;
+  }
+
+  chooseAvatar(id: string): void {
+    if (!isAvatarId(id)) throw new Error('아직 사용할 수 없는 모습이에요.');
+    if (id !== this.state.avatarId) this.set({ ...this.state, avatarId: id });
   }
 
   subscribe(fn: (s: GameState) => void): () => void {
@@ -310,6 +318,7 @@ export class LocalStorage implements Storage {
 /** 저장된 데이터를 지금 형식에 맞게 채워요. 예전 형식에는 없는 항목이 있어서 빈 값으로 채워요. */
 export function normalizeState(saved: Partial<GameState> | null | undefined): GameState {
   return {
+    avatarId: normalizeAvatarId(saved?.avatarId),
     tasks: saved?.tasks ?? [],
     residents: mergeDuplicateResidents(
       (saved?.residents ?? []).map((r) => ({ ...r, speciesId: r.speciesId ?? null, hearts: r.hearts ?? 1, visible: r.visible ?? true })),

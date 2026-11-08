@@ -5,6 +5,7 @@
 // 화면은 저장소(GameStore)와 방 상태(roomView)를 그대로 그리기만 해요.
 
 import Phaser from 'phaser';
+import { AVATARS, AVATAR_FRAME, AVATAR_ROWS, avatarRow, avatarTexture, avatarWalk, facingForMovement, type Facing } from '../avatars';
 import { FRIENDSHIP, TILE_SIZE, pickPixelScale } from '../config';
 import { roomView, type RoomViewState } from '../net/rooms';
 import { doughStage, type DoughStage, type Task } from '../rules/task';
@@ -46,7 +47,8 @@ interface DoughView {
 type MoveKeys = Record<'up' | 'down' | 'left' | 'right' | 'w' | 'a' | 's' | 'd', Phaser.Input.Keyboard.Key>;
 
 export class VillageScene extends Phaser.Scene {
-  private player!: Phaser.GameObjects.Image;
+  private player!: Phaser.GameObjects.Sprite;
+  private playerFacing: Facing = 'down';
   private keys!: MoveKeys;
   private interactionKey!: Phaser.Input.Keyboard.Key;
   private landmarks: LandmarkTarget[] = [];
@@ -88,6 +90,9 @@ export class VillageScene extends Phaser.Scene {
     );
     for (const c of this.store.getCatalog()) this.load.image(characterKey(c.id), `${this.characterDir}${c.image}`);
     for (const a of this.worldAssets) this.load.image(a.key, a.url);
+    for (const avatar of AVATARS) this.load.spritesheet(avatarTexture(avatar.id), `${this.characterDir}avatars/${avatar.id}-walk.png`, {
+      frameWidth: AVATAR_FRAME.width, frameHeight: AVATAR_FRAME.height,
+    });
   }
 
   create(): void {
@@ -96,7 +101,19 @@ export class VillageScene extends Phaser.Scene {
     this.anims.create({ key: 'campfire-burn', frames: [{ key: 'campfire-01' }, { key: 'campfire-02' }], frameRate: 4, repeat: -1 });
     this.blockers = this.physics.add.staticGroup();
 
-    this.player = this.add.image(0, 0, 'player').setOrigin(0.5, 1);
+    for (const avatar of AVATARS) {
+      const texture = avatarTexture(avatar.id);
+      if (!this.textures.exists(texture)) continue;
+      for (const row of Object.values(AVATAR_ROWS)) {
+        const key = avatarWalk(avatar.id, row);
+        if (!this.anims.exists(key)) this.anims.create({
+          key, frames: this.anims.generateFrameNumbers(texture, { start: row * AVATAR_FRAME.columns + 1, end: row * AVATAR_FRAME.columns + 4 }),
+          frameRate: 8, repeat: -1,
+        });
+      }
+    }
+    const texture = avatarTexture(this.store.get().avatarId);
+    this.player = this.add.sprite(0, 0, this.textures.exists(texture) ? texture : 'player', 0).setOrigin(0.5, 1);
     this.physics.add.existing(this.player);
     // 발밑만 부딪히게 해요.
     (this.player.body as Phaser.Physics.Arcade.Body).setCollideWorldBounds(true).setSize(T * 0.75, T * 0.375).setOffset(
@@ -139,16 +156,38 @@ export class VillageScene extends Phaser.Scene {
     const dy = typing ? 0 : Number(k.down.isDown || k.s.isDown) - Number(k.up.isDown || k.w.isDown);
     const v = new Phaser.Math.Vector2(dx, dy).normalize().scale(PLAYER_SPEED);
     body.setVelocity(v.x, v.y);
-    if (dx !== 0) this.player.setFlipX(dx < 0);
-    // 위로 걸으면 뒷모습, 아래·옆으로 걸으면 앞모습
-    if (dy < 0 && this.textures.exists('player-back')) this.player.setTexture('player-back');
-    else if (dy > 0 || dx !== 0) this.player.setTexture('player');
+    this.playerFacing = facingForMovement(this.playerFacing, dx, dy);
+    // 벽에 막혀 실제로 갈 수 없는 방향으로 누를 때는 발도 멈춰요.
+    const moving = (dx < 0 && !body.blocked.left) || (dx > 0 && !body.blocked.right)
+      || (dy < 0 && !body.blocked.up) || (dy > 0 && !body.blocked.down);
+    this.updatePlayerAppearance(moving);
     this.player.setDepth(this.player.y);
     const nearby = typing ? null : nearbyLandmark({ col: this.player.x / T, row: this.player.y / T }, this.landmarks);
     this.hud.setNearby(nearby?.id ?? null);
     if (pressed && nearby && !this.interactionKey.ctrlKey && !this.interactionKey.metaKey && !this.interactionKey.altKey) {
       body.setVelocity(0, 0);
       this.hud.interact(nearby.id);
+    }
+  }
+
+  private updatePlayerAppearance(moving: boolean): void {
+    const id = this.store.get().avatarId;
+    const texture = avatarTexture(id);
+    const row = avatarRow(this.playerFacing);
+    this.player.setFlipX(this.playerFacing === 'left');
+    if (!this.textures.exists(texture)) {
+      this.player.anims.stop();
+      this.player.setTexture(this.playerFacing === 'up' && this.textures.exists('player-back') ? 'player-back' : 'player');
+      return;
+    }
+    if (this.player.texture.key !== texture) {
+      this.player.anims.stop();
+      this.player.setTexture(texture);
+    }
+    if (moving) this.player.play(avatarWalk(id, row), true);
+    else {
+      this.player.anims.stop();
+      this.player.setTexture(texture, row * AVATAR_FRAME.columns);
     }
   }
 
