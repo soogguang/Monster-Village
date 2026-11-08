@@ -40,7 +40,7 @@ export async function startCloudSave(store: GameStore, client: SupabaseClient, u
   try { window.localStorage.setItem(OWNER_KEY, userId); } catch { /* 저장이 막힌 브라우저 */ }
 
   let timer: number | undefined;
-  store.subscribe((state) => {
+  store.subscribeSaves((state) => {
     window.clearTimeout(timer);
     timer = window.setTimeout(() => {
       upload(client, userId, state).catch((err) => console.warn('[클라우드 저장] 저장하지 못했어요. 다음 변경 때 다시 시도해요.', err));

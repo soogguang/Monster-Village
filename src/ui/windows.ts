@@ -63,7 +63,9 @@ export const tasksWindow: GameWindow = {
     const tools = body.querySelector<HTMLElement>('.today-tools')!;
     const list = body.querySelector<HTMLElement>('.list')!;
 
-    const render = (state: GameState) => {
+    // 화면을 다시 그려도 고치던 입력 칸(할 일 고치기, 오늘만 할 일)의 내용은 그대로 둬요.
+    const render = (state: GameState) => keepInputs(body, () => draw(state));
+    const draw = (state: GameState) => {
       body.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.tab === tab)));
       tools.hidden = tab !== 'today';
       if (tab === 'today') renderTodayTools();
@@ -91,6 +93,7 @@ export const tasksWindow: GameWindow = {
             <input class="px-input" name="title" placeholder="오늘만 할 일 (예: 우체국 가기)" maxlength="40" style="flex:1" />
             <label class="muted" title="시작 시각 (기본은 지금, 필요하면 바꿔요)">시작</label>
             <input class="px-input" name="start" type="time" value="${toTimeInput(Date.now())}" title="시작 시각 (기본은 지금, 필요하면 바꿔요)" style="width:auto" />
+            <button type="button" class="px-btn small ghost" data-start-now title="시작을 지금 시각으로">지금</button>
             <button class="px-btn small green">+ 추가</button>
           </form></div>`;
         return;
@@ -217,7 +220,7 @@ function editSlot(t: Task): string {
 function taskFormFields(startAt: number, dueAt: number, title: string, style: CalendarStyle, color: TaskColor = 'sky'): string {
   return `<div class="form-grid">
     <input class="px-input full" name="title" placeholder="할 일 (예: 보고서 쓰기)" maxlength="40" required value="${escapeHtml(title)}" />
-    <label>시작</label><input class="px-input" name="start" type="datetime-local" required value="${toLocalInput(startAt)}" />
+    <label>시작</label><div class="start-field"><input class="px-input" name="start" type="datetime-local" required value="${toLocalInput(startAt)}" /><button type="button" class="px-btn small ghost" data-start-now title="시작을 지금 시각으로">지금</button></div>
     <label>마감</label><input class="px-input" name="due" type="datetime-local" required value="${toLocalInput(dueAt)}" />
     <label>달력</label>
     <div class="full-rest style-pick">
@@ -229,6 +232,42 @@ function taskFormFields(startAt: number, dueAt: number, title: string, style: Ca
       <input type="radio" name="color" value="${c}" ${c === color ? 'checked' : ''} aria-label="${TASK_COLOR_STYLE[c].name}" />
       <span class="swatch" style="--bg:${TASK_COLOR_STYLE[c].bg};--edge:${TASK_COLOR_STYLE[c].edge}"></span></label>`).join('')}</div>
   </div>`;
+}
+
+// 할 일 칸의 [지금] 버튼: 시작을 지금 시각으로 채워요. (할 일 수첩·달력 어디서든)
+document.addEventListener('click', (e) => {
+  const button = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-start-now]');
+  const input = button?.closest('form')?.querySelector<HTMLInputElement>('input[name=start]');
+  if (!input) return;
+  input.value = input.type === 'time' ? toTimeInput(Date.now()) : toLocalInput(Date.now());
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+});
+
+/**
+ * 창 내용을 다시 그릴 때, 열려 있던 입력 칸에 적던 내용과 커서 위치를 그대로 되살려요.
+ * (데이터가 바뀌어 목록을 새로 그려도, 고치던 칸이 원래 값으로 되돌아가지 않게)
+ */
+function keepInputs(root: HTMLElement, redraw: () => void): void {
+  type Field = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+  const keyOf = (form: HTMLFormElement, el: Field) =>
+    `${form.className}|${form.dataset.id ?? ''}|${el.name}|${el instanceof HTMLInputElement && (el.type === 'radio' || el.type === 'checkbox') ? el.value : ''}`;
+  const fields = () => [...root.querySelectorAll<HTMLFormElement>('form')].flatMap((form) =>
+    [...form.elements].filter((el): el is Field => 'name' in el && Boolean((el as Field).name)).map((el) => ({ key: keyOf(form, el), el })));
+  const saved = new Map<string, { value: string; checked: boolean; touched?: string }>();
+  let focused: string | null = null;
+  for (const { key, el } of fields()) {
+    saved.set(key, { value: el.value, checked: el instanceof HTMLInputElement && el.checked, touched: el.dataset.touched });
+    if (el === document.activeElement) focused = key;
+  }
+  redraw();
+  for (const { key, el } of fields()) {
+    const s = saved.get(key);
+    if (!s) continue;
+    if (el instanceof HTMLInputElement && (el.type === 'radio' || el.type === 'checkbox')) el.checked = s.checked;
+    else el.value = s.value;
+    if (s.touched) el.dataset.touched = s.touched;
+    if (key === focused) el.focus();
+  }
 }
 
 function readTaskForm(form: HTMLFormElement) {

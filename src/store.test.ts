@@ -230,22 +230,27 @@ describe('GameStore', () => {
     expect(store.get().sessions.at(-1)).toMatchObject({ startedAt: start, endedAt: lastSeen });
   });
 
-  it('집중 중에는 연결 신호도 클라우드로 올라가도록 변경을 알려요', () => {
+  it('집중 중에는 연결 신호를 클라우드 저장으로만 알리고, 화면은 다시 그리지 않아요', () => {
     const { store, start, advance } = setup();
     const t = store.addTask('a', start, start + DAY);
     store.startFocus(t.id);
-    const seen: number[] = [];
-    store.subscribe((s) => seen.push(s.lastSeenAt ?? 0));
+    const saved: number[] = [];
+    let screen = 0;
+    store.subscribeSaves((s) => saved.push(s.lastSeenAt ?? 0));
+    store.subscribe(() => screen++);
     advance(MINUTE);
     store.heartbeat();
-    expect(seen.at(-1)).toBe(start + MINUTE);
+    expect(saved.at(-1)).toBe(start + MINUTE);
     expect(store.get().updatedAt).toBe(start + MINUTE);
+    // 화면을 다시 그리면 고치던 입력 칸이 되돌아가요 (30초마다 되돌아가던 문제)
+    expect(screen).toBe(0);
   });
 
   it('집중 중이 아니면 연결 신호는 조용히 저장만 해요 (클라우드에 자주 올리지 않게)', () => {
     const { store, advance } = setup();
     let calls = 0;
     store.subscribe(() => calls++);
+    store.subscribeSaves(() => calls++);
     advance(MINUTE);
     store.heartbeat();
     expect(calls).toBe(0);

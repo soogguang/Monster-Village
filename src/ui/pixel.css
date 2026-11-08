@@ -149,6 +149,8 @@ button, input, select { font: inherit; color: inherit; }
 
 .form-grid { display: grid; grid-template-columns: auto 1fr auto 1fr; gap: 6px 8px; align-items: center; }
 .form-grid .full { grid-column: 1 / -1; }
+.start-field { display: flex; gap: 4px; align-items: center; min-width: 0; }
+.start-field .px-input { flex: 1; min-width: 0; }
 .form-error { color: var(--berry); margin: 4px 0 0; }
 
 /* 캘린더 */

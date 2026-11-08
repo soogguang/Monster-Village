@@ -71,6 +71,8 @@ export class GameStore {
   private state: GameState;
   private catalog: CatalogEntry[] = [];
   private listeners = new Set<(s: GameState) => void>();
+  /** 저장할 거리가 생겼을 때 (클라우드 저장용). 화면을 다시 그릴 필요 없는 변경(연결 신호)도 여기로만 알려요 */
+  private saveListeners = new Set<(s: GameState) => void>();
 
   constructor(
     private storage: Storage,
@@ -104,9 +106,16 @@ export class GameStore {
     if (id !== this.state.avatarId) this.set({ ...this.state, avatarId: id });
   }
 
+  /** 화면용: 데이터가 바뀌면 불러요 */
   subscribe(fn: (s: GameState) => void): () => void {
     this.listeners.add(fn);
     return () => this.listeners.delete(fn);
+  }
+
+  /** 저장용(클라우드): 화면용 변경 + 집중 중의 연결 신호까지 불러요 */
+  subscribeSaves(fn: (s: GameState) => void): () => void {
+    this.saveListeners.add(fn);
+    return () => this.saveListeners.delete(fn);
   }
 
   addTask(title: string, startAt: number, dueAt: number, calendarStyle: CalendarStyle = 'due', color?: TaskColor): Task {
@@ -197,15 +206,12 @@ export class GameStore {
     if (this.state.focus && last !== null && now - last > DISCONNECT_LIMIT_MS) {
       ended = { endedAt: last, newUnlocks: this.stopFocus(last) };
     }
-    if (this.state.focus) {
-      // 집중 중에는 신호 시각도 클라우드에 올려요. (새로고침하거나 다른 기기에서 열었을 때,
-      // 옛날 신호 시각을 보고 "끊겼었다"고 착각해서 집중을 일찍 끝내지 않도록)
-      this.set({ ...this.state, lastSeenAt: now });
-    } else {
-      // 집중 중이 아니면 신호 시각만 바뀐 건 화면을 다시 그릴 필요가 없어서 조용히 저장만 해요.
-      this.state = { ...this.state, lastSeenAt: now };
-      this.storage.save(this.state);
-    }
+    // 신호 시각만 바뀐 건 화면을 다시 그리지 않아요. (그리면 고치던 입력 칸이 30초마다 되돌아가요)
+    this.state = { ...this.state, lastSeenAt: now, ...(this.state.focus ? { updatedAt: now } : {}) };
+    this.storage.save(this.state);
+    // 집중 중에는 신호 시각도 클라우드에 올려요. (새로고침하거나 다른 기기에서 열었을 때,
+    // 옛날 신호 시각을 보고 "끊겼었다"고 착각해서 집중을 일찍 끝내지 않도록)
+    if (this.state.focus) for (const fn of this.saveListeners) fn(this.state);
     return ended;
   }
 
@@ -302,6 +308,7 @@ export class GameStore {
 
   private emit(): void {
     for (const fn of this.listeners) fn(this.state);
+    for (const fn of this.saveListeners) fn(this.state);
   }
 }
 
