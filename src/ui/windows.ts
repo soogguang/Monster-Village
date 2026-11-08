@@ -775,12 +775,17 @@ const HELP_SECTIONS: { id: string; title: string; html: string }[] = [
   },
   {
     id: 'tasks', title: '📋 할 일과 반죽',
-    html: `<ul>
-      <li>할 일 창(<kbd>T</kbd>)에서 <b>제목 · 시작 · 마감</b>을 적어 등록해요.</li>
-      <li>🫧 <b>말랑 반죽</b>: 막 등록한 상태예요.</li>
-      <li>😤 <b>심술 반죽</b>: 시작하고 여유 시간(기간의 ${pct(RULES.grumpyGraceRatio)})이 지나도 한 번도 집중하지 않았어요. 1분 이상 집중하면 다시 말랑해져요.</li>
-      <li>👾 <b>몬스터</b>: 마감이 지났어요.</li>
+    html: `<p>할 일 창(<kbd>T</kbd>)에서 <b>제목 · 시작 · 마감</b>을 적어 등록하면 마당에 반죽이 생겨요. 반죽은 이렇게 변해요.</p>
+      <div class="help-doughs">
+        <figure><img src="{{chars}}dough-soft.png" alt="말랑 반죽" draggable="false" /><figcaption><b>🫧 말랑 반죽</b>막 등록한 상태예요. 집중을 한 번이라도 하면 마감 전까지 계속 말랑해요.</figcaption></figure>
+        <span class="arrow" aria-hidden="true">→</span>
+        <figure><img src="{{chars}}dough-grumpy.png" alt="심술 반죽" draggable="false" /><figcaption><b>😤 심술 반죽</b>시작하고 여유 시간(기간의 ${pct(RULES.grumpyGraceRatio)})이 지나도 한 번도 집중하지 않았어요. 1분 이상 집중하면 다시 말랑해져요.</figcaption></figure>
+        <span class="arrow" aria-hidden="true">→</span>
+        <figure><img src="{{chars}}dough-monster.png" alt="몬스터" draggable="false" /><figcaption><b>👾 몬스터</b>끝내지 못한 채 마감이 지났어요. 말랑이든 심술이든 마감을 넘기면 몬스터가 돼요.</figcaption></figure>
+      </div>
+      <ul>
       <li>집중하는 동안에는 어느 단계든 졸려서 얌전해져요 (z z).</li>
+      <li>할 일을 끝내면 반죽이 주민으로 태어나요. 몬스터가 된 뒤에 끝내도 태어나요. 언제 끝냈는지에 따라 주민이 달라져요. (아래 "주민 만나기")</li>
       <li>마감을 뒤로 미루면 미룬 횟수가 남고, 방 친구들에게도 보여요.</li>
     </ul>`,
   },
@@ -843,10 +848,10 @@ const HELP_SECTIONS: { id: string; title: string; html: string }[] = [
 
 export const helpWindow: GameWindow = {
   id: 'help', title: '사용 방법', icon: '❓', key: 'H', label: '도움말',
-  mount(body) {
+  mount(body, ctx) {
     body.innerHTML = `<div class="help">
       <nav class="help-nav">${HELP_SECTIONS.map((s) => `<button class="px-btn small ghost" data-jump="${s.id}">${s.title}</button>`).join('')}</nav>
-      ${HELP_SECTIONS.map((s) => `<section class="slot" data-section="${s.id}"><h3>${s.title}</h3>${s.html}</section>`).join('')}
+      ${HELP_SECTIONS.map((s) => `<section class="slot" data-section="${s.id}"><h3>${s.title}</h3>${s.html.replaceAll('{{chars}}', ctx.characterDir)}</section>`).join('')}
     </div>`;
     const onClick = (e: Event) => {
       const id = (e.target as HTMLElement).closest<HTMLElement>('[data-jump]')?.dataset.jump;

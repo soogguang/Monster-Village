@@ -243,6 +243,13 @@ button, input, select { font: inherit; color: inherit; }
 .help p, .help li { line-height: 1.7; }
 .help ul { margin: 0; padding-left: 18px; }
 .help kbd { font: inherit; font-size: 11px; padding: 0 4px; border: 2px solid var(--paper-shade); background: var(--paper-light); }
+.help-doughs { display: flex; align-items: stretch; gap: 6px; margin: 6px 0 8px; }
+.help-doughs figure { flex: 1; margin: 0; padding: 6px; text-align: center; background: var(--paper-light); border: 2px solid var(--paper-shade); }
+.help-doughs img { width: 64px; height: 72px; image-rendering: pixelated; display: block; margin: 0 auto 4px; }
+.help-doughs figcaption { font-size: 11px; line-height: 1.6; text-align: left; }
+.help-doughs figcaption b { display: block; text-align: center; margin-bottom: 2px; }
+.help-doughs .arrow { align-self: center; color: var(--ink-soft); }
+@media (max-width: 560px) { .help-doughs { flex-direction: column; } .help-doughs .arrow { display: none; } }
 .help-table { border-collapse: collapse; margin: 4px 0 8px; width: 100%; }
 .help-table th, .help-table td { border: 2px solid var(--paper-shade); padding: 4px 8px; text-align: left; font-size: 12px; }
 
