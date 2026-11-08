@@ -7,7 +7,7 @@
 - [다리 움직임 GIF](walking-preview.gif)
 - `model-sheet.png`: 기존 플레이어를 참고해서 생성한 정면·뒷모습·오른쪽 원화
 - `walk-{id}-source.png`: 방향별로 각 걷는 자세를 따로 그린 원화 3장
-- `build_avatars.py`: Pillow로 각 자세를 64×72에 맞춰 내보내기, 팔레트·얼굴 픽셀·기준점 정리, 시트 조립
+- `build_avatars.py`: Pillow로 각 자세를 64×72에 맞춰 내보내기, 팔레트·몸 전체 기준점 정리, 시트 조립
 
 ```sh
 python design/avatars/build_avatars.py
@@ -16,7 +16,8 @@ python design/avatars/build_avatars.py
 기존 `player-front.png`, `player-back.png`는 그대로 두고 숲길의 정지 그림으로 사용합니다.
 걷기는 각 방향마다 무릎 굽힘·발 디딤·밑창이 다른 4장의 원화로 만듭니다.
 원래 그림에서 다리를 옮겨 조립한 임시 프레임은 폐기했고, 각 그림을 64×72 개별 PNG로 내보내 시트에 묶습니다.
-눈·입은 정리한 원본 픽셀을 유지해 재생 중 표정이 흔들리지 않게 했습니다.
+걷는 동안 얼굴만 따로 고정해 붙이지 않고 머리·목·몸통이 이어진 원화 전체를 사용합니다.
+방향마다 네 자세에 같은 축척을 적용하고 허리 중심과 발밑을 맞춰, 머리가 몸에서 떨어져 떠 보이던 문제를 줄였습니다.
 
 게임용 파일은 `public/assets/characters/avatars/`에 있습니다.
 

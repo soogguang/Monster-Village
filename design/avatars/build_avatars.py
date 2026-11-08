@@ -119,28 +119,36 @@ def remove_strays(image):
     return clean(image)
 
 
-def walk_frame(source, base, row, step):
-    # Each frame comes from its OWN drawn pose: no limb translation or rotation.
-    tile = source.crop((step * source.width // 4, row * source.height // 3,
-                        (step + 1) * source.width // 4, (row + 1) * source.height // 3))
-    tile = remove_strays(tile)
-    tile = tile.crop(tile.getbbox())
-    width = round(tile.width * 62 / tile.height)
-    tile = tile.resize((width, 62), Image.Resampling.NEAREST)
-    # Register using the head, so a forward boot does not shift the whole sprite.
-    head = tile.getchannel('A').crop((0, 0, width, 34)).getbbox()
-    x = round(32 - (head[0] + head[2]) / 2)
-    frame = blank()
-    frame.paste(tile, (x, 9))
+def walk_frames(source, base, row):
+    # Every pose remains one whole drawing, including the head/neck/torso join.
+    tiles = []
+    for step in range(4):
+        tile = source.crop((step * source.width // 4, row * source.height // 3,
+                            (step + 1) * source.width // 4, (row + 1) * source.height // 3))
+        tile = remove_strays(tile)
+        tiles.append(tile.crop(tile.getbbox()))
+    # One scale per direction: bending a knee must not resize the head and body.
+    scale = min(62 / max(tile.height for tile in tiles), 60 / max(tile.width for tile in tiles))
     rgb_base = Image.new('RGB', SIZE, (241, 0, 238))
     rgb_base.paste(base, mask=base.getchannel('A'))
     palette = rgb_base.quantize(colors=256, method=Image.Quantize.MEDIANCUT)
-    color = frame.convert('RGB').quantize(palette=palette, dither=Image.Dither.NONE).convert('RGBA')
-    color.putalpha(frame.getchannel('A'))
-    # Keep the already cleaned facial pixels stable across all four drawings.
-    color.paste(base.crop((0, 0, 64, 43)), (0, 0))
-    color.paste((0, 0, 0, 0), (0, 71, 64, 72))
-    return clean(color)
+    result = []
+    for tile in tiles:
+        width, height = round(tile.width * scale), round(tile.height * scale)
+        tile = tile.resize((width, height), Image.Resampling.NEAREST)
+        # Anchor the waist, not a pasted face: head and shoulders can sway together.
+        alpha = tile.getchannel('A')
+        columns = [x for y in range(round(height * .70), round(height * .85))
+                   for x in range(width) if alpha.getpixel((x, y))]
+        columns.sort()
+        hip_x = columns[len(columns) // 2]
+        frame = blank()
+        frame.paste(tile, (32 - hip_x, 71 - height))
+        color = frame.convert('RGB').quantize(palette=palette, dither=Image.Dither.NONE).convert('RGBA')
+        color.putalpha(frame.getchannel('A'))
+        color.paste((0, 0, 0, 0), (0, 71, 64, 72))
+        result.append(clean(color))
+    return result
 
 
 def main():
@@ -161,7 +169,7 @@ def main():
         for row, (direction, base) in enumerate(zip(VIEWS, bases)):
             base.save(OUT / f'{avatar_id}-{direction}.png')
             sheet.paste(base, (0, row * 72))
-            poses = [walk_frame(drawn, base, row, step) for step in range(4)]
+            poses = walk_frames(drawn, base, row)
             assert len({pose.tobytes() for pose in poses}) == 4, (avatar_id, direction)
             for step, pose in enumerate(poses):
                 pose.save(OUT / f'{avatar_id}-{direction}-{step + 1:02}.png', optimize=True)
