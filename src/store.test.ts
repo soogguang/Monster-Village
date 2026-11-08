@@ -230,6 +230,33 @@ describe('GameStore', () => {
     expect(store.get().sessions.at(-1)).toMatchObject({ startedAt: start, endedAt: lastSeen });
   });
 
+  it('집중 중에는 연결 신호도 클라우드로 올라가도록 변경을 알려요', () => {
+    const { store, start, advance } = setup();
+    const t = store.addTask('a', start, start + DAY);
+    store.startFocus(t.id);
+    const seen: number[] = [];
+    store.subscribe((s) => seen.push(s.lastSeenAt ?? 0));
+    advance(MINUTE);
+    store.heartbeat();
+    expect(seen.at(-1)).toBe(start + MINUTE);
+    expect(store.get().updatedAt).toBe(start + MINUTE);
+  });
+
+  it('집중 중이 아니면 연결 신호는 조용히 저장만 해요 (클라우드에 자주 올리지 않게)', () => {
+    const { store, advance } = setup();
+    let calls = 0;
+    store.subscribe(() => calls++);
+    advance(MINUTE);
+    store.heartbeat();
+    expect(calls).toBe(0);
+  });
+
+  it('클라우드 데이터로 바꿀 때는 그 데이터의 바뀐 시각을 그대로 지켜요', () => {
+    const { store } = setup();
+    store.replaceState({ tasks: [], updatedAt: 1234 });
+    expect(store.get().updatedAt).toBe(1234);
+  });
+
   it('같은 캐릭터가 또 나오면 새 주민 대신 친밀도가 올라가고, 3·6에서 단계가 올라가요', () => {
     const { store, start } = setup(0.99);
     store.setCatalog([{ id: 'puppy', name: '강아지', kind: 'sprout', rare: false, unlock: null, image: 'p.png' }]);

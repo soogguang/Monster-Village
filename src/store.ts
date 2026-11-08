@@ -43,6 +43,8 @@ export interface GameState {
   plans: Record<string, string[]>;
   /** 게임 창이 마지막으로 연결돼 있던 시각 (집중 자동 종료에 써요) */
   lastSeenAt: number | null;
+  /** 마지막으로 데이터가 바뀐 시각. 브라우저와 클라우드 중 어느 쪽이 최신인지 비교해요 (예전 데이터는 0) */
+  updatedAt: number;
 }
 
 export interface Storage {
@@ -79,8 +81,9 @@ export class GameStore {
   }
 
   /** 다른 곳(클라우드 저장 등)에서 받은 데이터로 통째로 바꿔요. */
+  /** 다른 곳(클라우드)의 데이터로 바꿔요. 바뀐 시각(updatedAt)은 그 데이터의 것을 그대로 지켜요. */
   replaceState(saved: Partial<GameState> | null): void {
-    this.set(normalizeState(saved));
+    this.set(normalizeState(saved), false);
   }
 
   setCatalog(catalog: CatalogEntry[]): void {
@@ -194,9 +197,15 @@ export class GameStore {
     if (this.state.focus && last !== null && now - last > DISCONNECT_LIMIT_MS) {
       ended = { endedAt: last, newUnlocks: this.stopFocus(last) };
     }
-    // 신호 시각만 바뀐 건 화면을 다시 그릴 필요가 없어서 조용히 저장만 해요.
-    this.state = { ...this.state, lastSeenAt: now };
-    this.storage.save(this.state);
+    if (this.state.focus) {
+      // 집중 중에는 신호 시각도 클라우드에 올려요. (새로고침하거나 다른 기기에서 열었을 때,
+      // 옛날 신호 시각을 보고 "끊겼었다"고 착각해서 집중을 일찍 끝내지 않도록)
+      this.set({ ...this.state, lastSeenAt: now });
+    } else {
+      // 집중 중이 아니면 신호 시각만 바뀐 건 화면을 다시 그릴 필요가 없어서 조용히 저장만 해요.
+      this.state = { ...this.state, lastSeenAt: now };
+      this.storage.save(this.state);
+    }
     return ended;
   }
 
@@ -285,8 +294,8 @@ export class GameStore {
     return { unlocks, newUnlocks };
   }
 
-  private set(next: GameState): void {
-    this.state = next;
+  private set(next: GameState, touch = true): void {
+    this.state = touch ? { ...next, updatedAt: this.now() } : next;
     this.storage.save(next);
     this.emit();
   }
@@ -330,6 +339,7 @@ export function normalizeState(saved: Partial<GameState> | null | undefined): Ga
     unlocks: saved?.unlocks ?? {},
     plans: saved?.plans ?? {},
     lastSeenAt: saved?.lastSeenAt ?? null,
+    updatedAt: saved?.updatedAt ?? 0,
   };
 }
 
