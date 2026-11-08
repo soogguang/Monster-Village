@@ -128,6 +128,10 @@ export function mountHud(store: GameStore, characterDir: string): VillageActions
   interactionButton.addEventListener('click', () => { if (nearby) interact(nearby); });
 
   // ----- 왼쪽 위 상태 상자: 시계, 지금 상태, 집중 시작·끝 -----
+  // 할 일을 고르면 선택 칸에서 바로 빠져나와요. 칸에 머물면 캐릭터가 멈추고, 방향키가 할 일 선택을 바꿔 버려요.
+  status.addEventListener('change', (e) => {
+    if (e.target instanceof HTMLSelectElement) e.target.blur();
+  });
   status.addEventListener('click', (e) => {
     const act = (e.target as HTMLElement).closest<HTMLElement>('[data-act]')?.dataset.act;
     if (act === 'stop') ctx.toggleFocus(store.get().focus!.taskId);
