@@ -1,6 +1,7 @@
 // 가운데에 뜨는 창들 (할 일, 캘린더, 도감, 내 주민)
 // 창 안의 목록은 저장소가 바뀔 때마다 다시 그리고, 입력 중인 폼은 건드리지 않아요.
 
+import { FRIENDSHIP, RULES } from '../config';
 import { roomView, type RoomViewState } from '../net/rooms';
 import { friendshipStage } from '../rules/friendship';
 import { HABIT_IDS } from '../rules/habits';
@@ -664,6 +665,113 @@ export const treeWindow: GameWindow = {
 export const bellWindow: GameWindow = {
   ...roomsWindow, id: 'bell', title: '응원의 종', icon: '🔔', key: '',
   mount: (body, ctx) => roomsWindow.mount(body, { ...ctx, roomSection: 'members' }),
+};
+
+// ---------------------------------------------------------------- 사용 방법 (? 버튼, H)
+
+/** 처음 들어온 사람에게 한 번 자동으로 보여줬는지 (이 브라우저 기준) */
+export const HELP_SEEN_KEY = 'monster-village:help-seen';
+
+const pct = (n: number) => `${Math.round(n * 100)}%`;
+const HELP_SECTIONS: { id: string; title: string; html: string }[] = [
+  {
+    id: 'about', title: '🏘️ 어떤 게임이에요?',
+    html: `<p>할 일을 적으면 마당에 <b>말랑 반죽</b>이 생겨요. 미루면 반죽이 심술이 나고, 마감이 지나면 <b>몬스터</b>가 돼요.
+      할 일을 끝내면 반죽이 <b>주민</b>으로 태어나서 내 마당에 살아요. 일찍 끝낼수록 귀하고 희귀한 주민을 만날 수 있어요.</p>
+      <p>친구와 <b>방</b>을 만들면 서로의 집이 모인 마을에서 같이 집중하고 응원할 수 있어요.</p>`,
+  },
+  {
+    id: 'controls', title: '🎮 조작',
+    html: `<ul>
+      <li><b>이동:</b> 방향키 또는 W·A·S·D</li>
+      <li><b>사물 쓰기:</b> 수호나무·모닥불·종·우리 집 가까이에서 <kbd>E</kbd> 또는 그림을 클릭</li>
+      <li><b>창 열기:</b> 아래 버튼 줄 또는 단축키 — <kbd>T</kbd> 할 일 · <kbd>C</kbd> 캘린더 · <kbd>B</kbd> 도감 · <kbd>R</kbd> 내 주민 · <kbd>G</kbd> 방 · <kbd>H</kbd> 사용 방법</li>
+      <li><b>창 닫기:</b> <kbd>Esc</kbd> 또는 오른쪽 위 ✕</li>
+    </ul>`,
+  },
+  {
+    id: 'tasks', title: '📋 할 일과 반죽',
+    html: `<ul>
+      <li>할 일 창(<kbd>T</kbd>)에서 <b>제목 · 시작 · 마감</b>을 적어 등록해요.</li>
+      <li>🫧 <b>말랑 반죽</b>: 막 등록한 상태예요.</li>
+      <li>😤 <b>심술 반죽</b>: 시작하고 여유 시간(기간의 ${pct(RULES.grumpyGraceRatio)}, 최대 ${RULES.grumpyGraceMaxMinutes}분)이 지나도 한 번도 집중하지 않았어요.</li>
+      <li>👾 <b>몬스터</b>: 마감이 지났어요.</li>
+      <li>집중하는 동안에는 어느 단계든 졸려서 얌전해져요 (z z).</li>
+      <li>마감을 뒤로 미루면 미룬 횟수가 남고, 방 친구들에게도 보여요.</li>
+    </ul>`,
+  },
+  {
+    id: 'focus', title: '🔥 집중하기',
+    html: `<ul>
+      <li>왼쪽 위 상태 상자에서 할 일을 고르고 <b>🔥 집중</b>을 눌러요. 끝낼 때는 <b>집중 끝내기</b>.</li>
+      <li>방 마을에서는 <b>모닥불</b> 앞에서 <kbd>E</kbd>를 눌러도 집중을 시작할 수 있어요. 같이 집중하는 친구가 많을수록 모닥불이 커져요.</li>
+      <li>창을 닫거나 노트북이 잠들어서 연결이 5분 넘게 끊기면, 마지막으로 연결된 시각에 집중이 끝난 것으로 기록돼요.</li>
+    </ul>`,
+  },
+  {
+    id: 'residents', title: '🌱 주민 만나기',
+    html: `<p>할 일을 끝낸 시점(시작~마감 중 어디쯤인지)과 집중 여부로 주민이 정해져요.</p>
+      <table class="help-table"><thead><tr><th>끝낸 시점</th><th>태어나는 주민</th></tr></thead><tbody>
+        <tr><td>기간의 ${pct(RULES.veryEarlyRatio)} 이전</td><td>🌱 새싹 (✨ 희귀가 잘 나와요)</td></tr>
+        <tr><td>${pct(RULES.veryEarlyRatio)} ~ ${pct(RULES.lateRatio)}</td><td>🌱 새싹</td></tr>
+        <tr><td>${pct(RULES.lateRatio)} 이후 또는 마감 후 · ${RULES.focusMinutesForSleepy}분 이상 집중함</td><td>😴 꾸벅이</td></tr>
+        <tr><td>${pct(RULES.lateRatio)} 이후 또는 마감 후 · 집중 부족</td><td>😈 말썽</td></tr>
+      </tbody></table>
+      <ul>
+        <li>같은 주민을 또 만나면 친밀도 ♥가 올라요. ♥${FRIENDSHIP.friendHearts}이면 친해져서 가끔 다가와 인사하고, ♥${FRIENDSHIP.evolveHearts}이면 진화해요.</li>
+        <li>만난 주민은 도감(<kbd>B</kbd>)에 기록돼요. 내 주민(<kbd>R</kbd>)에서 별명을 짓고, 마당에 나올 주민을 고를 수 있어요.</li>
+      </ul>`,
+  },
+  {
+    id: 'habits', title: '🔓 집중 습관',
+    html: `<p>집중 습관을 처음 한 번 해내면 새로운 주민을 만날 수 있게 돼요. (도감 → 집중 습관 탭)</p>
+      <ul>${HABIT_IDS.map((id) => `<li><b>${HABIT_TEXT[id].name}</b>: ${HABIT_TEXT[id].how}</li>`).join('')}</ul>`,
+  },
+  {
+    id: 'plan', title: '📅 오늘 할 일과 캘린더',
+    html: `<ul>
+      <li><b>오늘 할 일</b>에는 내가 오늘 하기로 고른 일만 들어가요. <b>[오늘 할 수 있는 일 가져오기]</b>로 골라 오거나, <b>오늘만 할 일</b>을 바로 추가해요.</li>
+      <li>오늘 못 끝낸 일은 내일 자동으로 넘어가지 않고, 내일 다시 고를 수 있어요.</li>
+      <li>캘린더(<kbd>C</kbd>)에서 날짜를 <b>클릭</b>하면 그날이 마감인 할 일, 여러 날을 <b>끌면</b> 기간 할 일을 바로 추가해요.</li>
+      <li>할 일마다 캘린더에 📌 마감일만 / ▬ 기간 중 어떻게 보일지 고를 수 있어요.</li>
+    </ul>`,
+  },
+  {
+    id: 'rooms', title: '🏕️ 친구와 방',
+    html: `<ul>
+      <li>방은 카카오로 로그인해야 쓸 수 있어요. 방 창(<kbd>G</kbd>)에서 <b>+ 새 방</b>을 만들고 <b>초대 코드</b>(6자리)를 친구에게 보내요.</li>
+      <li>접속하면 언제나 <b>내 집</b>에서 시작해요. 방 창에서 <b>[이 방 마을로 가기]</b>를 누르면 친구들 집과 광장이 있는 마을로 가요.</li>
+      <li>마을에서는 친구 마당에 걸어가서 친구 주민을 구경할 수 있어요.</li>
+      <li>🌳 <b>수호나무</b>: 방 친구 누구나 같이 할 일을 걸고 끝낼 수 있어요.</li>
+      <li>🔥 <b>모닥불</b>: 같이 집중해요. 🔔 <b>응원의 종</b>: 친구를 골라 응원을 보내요.</li>
+      <li>마을에서 <b>내 집 앞에서 <kbd>E</kbd></b>를 누르면 내 집으로 돌아와요. 집에 있어도 종 알림과 친구 상태는 계속 받아요.</li>
+    </ul>`,
+  },
+  {
+    id: 'account', title: '👤 계정과 저장',
+    html: `<ul>
+      <li><b>카카오로 시작하기</b>로 로그인하면 내 데이터가 저장돼서 다른 기기에서도 이어져요.</li>
+      <li><b>로그인 없이 해보기</b>로 하면 이 브라우저에만 저장돼요. 나중에 로그인하면 그대로 옮겨져요.</li>
+      <li>오른쪽 위 👤 이름을 누르면 동네에서 쓰는 이름을 바꿀 수 있어요.</li>
+    </ul>`,
+  },
+];
+
+export const helpWindow: GameWindow = {
+  id: 'help', title: '사용 방법', icon: '❓', key: 'H', label: '도움말',
+  mount(body) {
+    body.innerHTML = `<div class="help">
+      <nav class="help-nav">${HELP_SECTIONS.map((s) => `<button class="px-btn small ghost" data-jump="${s.id}">${s.title}</button>`).join('')}</nav>
+      ${HELP_SECTIONS.map((s) => `<section class="slot" data-section="${s.id}"><h3>${s.title}</h3>${s.html}</section>`).join('')}
+    </div>`;
+    const onClick = (e: Event) => {
+      const id = (e.target as HTMLElement).closest<HTMLElement>('[data-jump]')?.dataset.jump;
+      if (id) body.querySelector(`[data-section="${id}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+    body.addEventListener('click', onClick);
+    try { window.localStorage.setItem(HELP_SEEN_KEY, '1'); } catch { /* 저장이 막힌 브라우저 */ }
+    return () => body.removeEventListener('click', onClick);
+  },
 };
 
 export const WINDOWS: GameWindow[] = [tasksWindow, calendarWindow, dexWindow, residentsWindow, roomsWindow];

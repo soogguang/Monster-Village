@@ -6,7 +6,7 @@ import type { CompleteResult, GameStore } from '../store';
 import { HABIT_TEXT, RESIDENT_TEXT, escapeHtml, formatClock, formatElapsed, heartsText } from './format';
 import { roomView } from '../net/rooms';
 import { LANDMARK_TEXT, type LandmarkId, type VillageActions } from '../world/interactions';
-import { WINDOWS, bellWindow, focusWindow, treeWindow, type GameWindow, type WindowContext } from './windows';
+import { HELP_SEEN_KEY, WINDOWS, bellWindow, focusWindow, helpWindow, treeWindow, type GameWindow, type WindowContext } from './windows';
 
 export function mountHud(store: GameStore, characterDir: string): VillageActions {
   document.body.insertAdjacentHTML(
@@ -20,6 +20,7 @@ export function mountHud(store: GameStore, characterDir: string): VillageActions
     <nav id="toolbar" class="px-box" aria-label="메뉴">
       ${WINDOWS.map((w) => `<button class="px-btn tool" data-window="${w.id}" title="${w.label} (${w.key})"><span class="icon">${w.icon}</span>${w.label}<kbd>${w.key}</kbd></button>`).join('')}
     </nav>
+    <button id="help-button" class="px-btn" data-window="help" title="사용 방법 (H)" aria-label="사용 방법">?</button>
     <p id="movement-help">방향키 / WASD로 이동 · 사물 가까이에서 E</p>
     <button id="world-interaction" class="px-btn" hidden></button>
     <div id="modal-backdrop" hidden>
@@ -94,7 +95,7 @@ export function mountHud(store: GameStore, characterDir: string): VillageActions
     renderInteraction();
   };
   const renderToolbar = () =>
-    document.querySelectorAll<HTMLButtonElement>('#toolbar [data-window]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.window === openId)));
+    document.querySelectorAll<HTMLButtonElement>('#toolbar [data-window], #help-button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.window === openId)));
 
   document.getElementById('toolbar')!.addEventListener('click', (e) => {
     const id = (e.target as HTMLElement).closest<HTMLElement>('[data-window]')?.dataset.window;
@@ -109,9 +110,14 @@ export function mountHud(store: GameStore, characterDir: string): VillageActions
     if (e.key === 'Escape' && openId) return close();
     const typing = e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement || e.target instanceof HTMLTextAreaElement || (e.target instanceof HTMLElement && e.target.isContentEditable);
     if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
-    const w = WINDOWS.find((x) => x.key === e.key.toUpperCase());
+    const w = [...WINDOWS, helpWindow].find((x) => x.key === e.key.toUpperCase());
     if (w) open(w);
   });
+  document.getElementById('help-button')!.addEventListener('click', () => open(helpWindow));
+  // 처음 들어온 사람에게는 사용 방법을 한 번 먼저 보여줘요. (이 브라우저 기준)
+  let helpSeen = false;
+  try { helpSeen = window.localStorage.getItem(HELP_SEEN_KEY) === '1'; } catch { /* 저장이 막힌 브라우저 */ }
+  if (!helpSeen) open(helpWindow);
 
   const interactionWindows: Record<Exclude<LandmarkId, 'home'>, GameWindow> = { tree: treeWindow, campfire: focusWindow, bell: bellWindow };
   const interact = (id: LandmarkId) => {
