@@ -14,6 +14,7 @@ import { buildTiles, createHomeLayout, createVillageLayout, withMinWidth, type R
 import { MEADOW_TILES, grassTileAt, villageDecor, worldBlocks } from '../world/decor';
 import { LANDMARK_TEXT, canInteract, landmarkTargets, nearbyLandmark, type LandmarkId, type LandmarkTarget, type VillageActions } from '../world/interactions';
 import { makePlaceholderTextures } from './textures';
+import { residentActionImages, residentActionPose, residentWalkPose } from './residentMotion';
 
 const T = TILE_SIZE;
 /** 초당 이동 거리 (타일 5.6칸) */
@@ -46,6 +47,22 @@ interface DoughView {
 
 type MoveKeys = Record<'up' | 'down' | 'left' | 'right' | 'w' | 'a' | 's' | 'd', Phaser.Input.Keyboard.Key>;
 
+interface ResidentMotion {
+  sprite: Phaser.GameObjects.Image;
+  yard: YardPlan;
+  rng: Phaser.Math.RandomDataGenerator;
+  isFriend: () => boolean;
+  speciesId: string | null;
+  baseTexture: string;
+  phase: 'wait' | 'walk' | 'action';
+  startedAt: number;
+  duration: number;
+  from: { x: number; y: number };
+  to: { x: number; y: number };
+  actionNext: boolean;
+  greet: boolean;
+}
+
 export class VillageScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Sprite;
   private playerFacing: Facing = 'down';
@@ -64,6 +81,7 @@ export class VillageScene extends Phaser.Scene {
 
   private doughViews = new Map<string, DoughView>();
   private residentViews = new Map<string, Phaser.GameObjects.Image>();
+  private residentMotions = new Map<Phaser.GameObjects.Image, ResidentMotion>();
   /** 주민별 친밀도 (♥가 오르면 하트를 띄우고, 친해진 주민은 가끔 인사하러 와요) */
   private residentHearts = new Map<string, number>();
   private yardSigns = new Map<string, Phaser.GameObjects.Text>();
@@ -88,7 +106,12 @@ export class VillageScene extends Phaser.Scene {
     this.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR, (file: Phaser.Loader.File) =>
       console.warn(`[그림] ${file.url} 을(를) 불러오지 못했어요. 임시 그림으로 보여줄게요.`),
     );
-    for (const c of this.store.getCatalog()) this.load.image(characterKey(c.id), `${this.characterDir}${c.image}`);
+    for (const c of this.store.getCatalog()) {
+      this.load.image(characterKey(c.id), `${this.characterDir}${c.image}`);
+      for (const image of residentActionImages(c.id)) {
+        if (image !== c.id) this.load.image(characterKey(image), `${this.characterDir}${image}.png`);
+      }
+    }
     for (const a of this.worldAssets) this.load.image(a.key, a.url);
     for (const avatar of AVATARS) this.load.spritesheet(avatarTexture(avatar.id), `${this.characterDir}avatars/${avatar.id}-walk.png`, {
       frameWidth: AVATAR_FRAME.width, frameHeight: AVATAR_FRAME.height,
@@ -157,6 +180,7 @@ export class VillageScene extends Phaser.Scene {
   }
 
   update(): void {
+    this.updateResidentMotions(this.time.now);
     const body = this.player.body as Phaser.Physics.Arcade.Body;
     // 입력창에 글자를 치거나 창이 열려 있으면 캐릭터가 움직이지 않아요.
     const active = document.activeElement;
@@ -328,6 +352,7 @@ export class VillageScene extends Phaser.Scene {
     this.residentViews.clear();
     for (const { sprites } of this.friendYards.values()) for (const s of sprites) { this.tweens.killTweensOf(s); s.destroy(); }
     this.friendYards.clear();
+    this.residentMotions.clear();
     this.yardSigns.clear();
     this.campfire = this.campfireLabel = this.treeLabel = null;
     this.world = null;
@@ -454,7 +479,14 @@ export class VillageScene extends Phaser.Scene {
       sprite.setScale(0);
       this.tweens.add({ targets: sprite, scale: 1, duration: 500, ease: 'Back.Out' });
     }
-    this.wander(sprite, yard, rng, isFriend);
+    const ground = { x: Math.round(home.x), y: Math.round(home.y) };
+    sprite.setPosition(ground.x, ground.y).setDepth(ground.y);
+    this.residentMotions.set(sprite, {
+      sprite, yard, rng, isFriend, speciesId: r.speciesId ?? null, baseTexture: key,
+      phase: 'wait', startedAt: this.time.now, duration: rng.between(1200, 3000),
+      from: ground, to: ground, actionNext: true, greet: false,
+    });
+    sprite.once(Phaser.GameObjects.Events.DESTROY, () => this.residentMotions.delete(sprite));
     return sprite;
   }
 
@@ -475,26 +507,59 @@ export class VillageScene extends Phaser.Scene {
    * 주민이 마당 아래쪽에서 통통 튀며 천천히 돌아다녀요. (집이 있는 위쪽은 비워 둬요)
    * 친해진 주민(♥3 이상)은 내가 마당에 있으면 가끔 다가와서 하트로 인사해요.
    */
-  private wander(sprite: Phaser.GameObjects.Image, yard: YardPlan, rng: Phaser.Math.RandomDataGenerator, isFriend: () => boolean): void {
-    if (!sprite.active) return;
+  private startResidentWalk(motion: ResidentMotion, now: number): void {
+    const { sprite, yard, rng, isFriend } = motion;
     const greet = isFriend() && this.playerInYard(yard) && rng.frac() < 0.35;
     const next = greet
       ? { x: this.player.x + (rng.frac() < 0.5 ? -1 : 1) * T * 1.5, y: this.player.y + T * 0.25 }
       : this.yardSpot(yard, rng.realInRange(0.31, 0.74), rng.realInRange(0.82, 0.94));
-    sprite.setFlipX(next.x < sprite.x);
-    this.tweens.add({
-      targets: sprite,
-      x: next.x,
-      y: next.y,
-      // 주민은 초당 타일 1칸 정도로 느긋하게 걸어요.
-      duration: (Phaser.Math.Distance.Between(sprite.x, sprite.y, next.x, next.y) / T) * 960,
-      delay: rng.between(800, 3000),
-      onUpdate: () => sprite.setDepth(sprite.y),
-      onComplete: () => {
-        if (greet && sprite.active) this.popHeart(sprite);
-        this.wander(sprite, yard, rng, isFriend);
-      },
-    });
+    motion.from = { ...motion.to };
+    motion.to = { x: Math.round(next.x), y: Math.round(next.y) };
+    motion.duration = Math.max(320, Phaser.Math.Distance.Between(motion.from.x, motion.from.y, motion.to.x, motion.to.y) / T * 960);
+    motion.startedAt = now;
+    motion.phase = 'walk';
+    motion.greet = greet;
+    motion.actionNext = true;
+    sprite.setTexture(motion.baseTexture);
+  }
+
+  private waitResident(motion: ResidentMotion, now: number): void {
+    motion.sprite.setTexture(motion.baseTexture).setPosition(motion.to.x, motion.to.y).setDepth(motion.to.y);
+    motion.phase = 'wait';
+    motion.startedAt = now;
+    motion.duration = motion.rng.between(800, 3000);
+  }
+
+  private updateResidentMotions(now: number): void {
+    for (const motion of this.residentMotions.values()) {
+      const { sprite } = motion;
+      const elapsed = now - motion.startedAt;
+      if (motion.phase === 'walk') {
+        const pose = residentWalkPose(motion.from, motion.to, elapsed, motion.duration);
+        sprite.setPosition(pose.x, pose.y).setDepth(pose.groundY);
+        if (pose.done) {
+          if (motion.greet) this.popHeart(sprite);
+          this.waitResident(motion, now);
+        }
+      } else if (motion.phase === 'action') {
+        const pose = residentActionPose(motion.speciesId, elapsed);
+        if (!pose) this.waitResident(motion, now);
+        else {
+          const key = characterKey(pose.image);
+          sprite.setTexture(this.textures.exists(key) ? key : motion.baseTexture);
+          sprite.setPosition(motion.to.x, motion.to.y - pose.lift).setDepth(motion.to.y);
+        }
+      } else if (elapsed >= motion.duration) {
+        const images = residentActionImages(motion.speciesId);
+        if (motion.actionNext && images.some((image) => this.textures.exists(characterKey(image)))) {
+          motion.phase = 'action';
+          motion.startedAt = now;
+          motion.actionNext = false;
+        } else this.startResidentWalk(motion, now);
+      }
+      // 정면 한 장을 좌우로 뒤집으면 비대칭 얼굴의 눈이 옆으로 튀어요.
+      // 주민은 정면을 유지하고, 이동은 위치와 0~2px 높이 변화로 표현해요.
+    }
   }
 
   // ---------------------------------------------------------------- 방 친구들

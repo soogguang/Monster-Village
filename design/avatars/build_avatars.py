@@ -3,6 +3,7 @@
 Run from any directory: python design/avatars/build_avatars.py (requires Pillow).
 The existing forest front/back drawings remain the idle bases for that avatar.
 """
+from collections import Counter
 from pathlib import Path
 
 from PIL import Image, ImageDraw
@@ -13,6 +14,76 @@ OUT = ROOT / 'public/assets/characters/avatars'
 SIZE = (64, 72)
 IDS = ('forest', 'mint', 'lavender')
 VIEWS = ('down', 'up', 'side')
+
+# Native-pixel eye guides: old pupil bounds and the registered new left eye.
+# Entries are idle, then four authored poses. They follow each pose's head,
+# rather than fixing a detached head crop at one screen position.
+EYE_GUIDES = {
+    ('forest', 'down'): [
+        ([(25, 31, 27, 34), (36, 31, 38, 34)], (25, 31)),
+        ([(25, 29, 26, 32), (35, 29, 37, 33)], (24, 29)),
+        ([(27, 30, 28, 33), (37, 30, 39, 34)], (26, 30)),
+        ([(27, 29, 29, 33), (38, 29, 40, 32)], (27, 29)),
+        ([(27, 30, 29, 34), (38, 30, 40, 34)], (27, 30)),
+    ],
+    ('mint', 'down'): [
+        ([(26, 30, 27, 33), (37, 30, 38, 33)], (26, 30)),
+        ([(27, 31, 28, 34), (38, 31, 38, 34)], (27, 30)),
+        ([(28, 30, 28, 33), (38, 30, 38, 33)], (27, 29)),
+        ([(26, 31, 27, 34), (36, 31, 37, 34)], (26, 30)),
+        ([(27, 30, 28, 33), (38, 30, 38, 33)], (27, 29)),
+    ],
+    ('lavender', 'down'): [
+        ([(26, 29, 27, 32), (37, 29, 38, 32)], (26, 29)),
+        ([(27, 30, 28, 33), (37, 30, 38, 33)], (27, 30)),
+        ([(27, 28, 28, 31), (38, 28, 39, 31)], (27, 28)),
+        ([(28, 30, 29, 33), (39, 30, 40, 33)], (28, 30)),
+        ([(28, 31, 29, 34), (38, 31, 39, 34)], (28, 31)),
+    ],
+    ('forest', 'side'): [
+        ([(40, 30, 41, 33)], (40, 30)),
+        ([(41, 30, 42, 33)], (41, 30)),
+        ([(39, 30, 40, 33)], (39, 30)),
+        ([(41, 30, 42, 33)], (41, 30)),
+        ([(39, 30, 40, 33)], (39, 30)),
+    ],
+    ('mint', 'side'): [
+        ([(40, 29, 42, 33)], (40, 29)),
+        ([(40, 30, 42, 34)], (40, 30)),
+        ([(41, 29, 42, 34)], (41, 29)),
+        ([(41, 30, 42, 34)], (41, 30)),
+        ([(40, 29, 41, 33)], (40, 29)),
+    ],
+    ('lavender', 'side'): [
+        ([(42, 28, 43, 31)], (42, 28)),
+        ([(45, 28, 46, 31)], (45, 28)),
+        ([(43, 27, 44, 30)], (43, 27)),
+        ([(45, 28, 46, 31)], (45, 28)),
+        ([(42, 30, 43, 33)], (42, 30)),
+    ],
+}
+
+
+def stable_eyes(image, avatar_id, direction, step):
+    if direction == 'up' or (avatar_id == 'forest' and direction == 'down' and step == 0):
+        return image
+    image = image.copy()
+    boxes, (eye_x, eye_y) = EYE_GUIDES[(avatar_id, direction)][step]
+    draw = ImageDraw.Draw(image)
+    for left, top, right, bottom in boxes:
+        # Erase only the old pupil bounds with nearby face skin, never the hair,
+        # cheek outline, neck or the authored body's movement.
+        skin = [image.getpixel((x, y)) for y in range(top, bottom + 1)
+                for x in range(left - 1, right + 2)
+                if (lambda p: p[3] and p[0] > 165 and p[1] > 125
+                    and p[0] > p[1] * 1.08 and p[1] > p[2] * 1.08)(image.getpixel((x, y)))]
+        tone = Counter(skin).most_common(1)[0][0]
+        draw.rectangle((left, top, right, bottom), fill=tone)
+    ink = (116, 72, 45, 255) if avatar_id == 'forest' else (67, 43, 28, 255)
+    width = 3 if avatar_id == 'forest' and direction == 'down' else 2
+    for x in ((eye_x, eye_x + 11) if direction == 'down' else (eye_x,)):
+        draw.rectangle((x, eye_y, x + width - 1, eye_y + 3), fill=ink)
+    return image
 
 
 def blank():
@@ -119,7 +190,7 @@ def remove_strays(image):
     return clean(image)
 
 
-def walk_frames(source, base, row):
+def walk_frames(source, base, row, avatar_id):
     # Every pose remains one whole drawing, including the head/neck/torso join.
     tiles = []
     for step in range(4):
@@ -133,7 +204,7 @@ def walk_frames(source, base, row):
     rgb_base.paste(base, mask=base.getchannel('A'))
     palette = rgb_base.quantize(colors=256, method=Image.Quantize.MEDIANCUT)
     result = []
-    for tile in tiles:
+    for step, tile in enumerate(tiles, 1):
         width, height = round(tile.width * scale), round(tile.height * scale)
         tile = tile.resize((width, height), Image.Resampling.NEAREST)
         # Anchor the waist, not a pasted face: head and shoulders can sway together.
@@ -147,7 +218,7 @@ def walk_frames(source, base, row):
         color = frame.convert('RGB').quantize(palette=palette, dither=Image.Dither.NONE).convert('RGBA')
         color.putalpha(frame.getchannel('A'))
         color.paste((0, 0, 0, 0), (0, 71, 64, 72))
-        result.append(clean(color))
+        result.append(stable_eyes(clean(color), avatar_id, VIEWS[row], step))
     return result
 
 
@@ -163,13 +234,17 @@ def main():
         else:
             bases = unify_palette(bases)
             bases = [touch_up_face(base, avatar_id, view) for base, view in zip(bases, VIEWS)]
+        # Keep the source palette unchanged: fixing the idle eyes must not
+        # recolor unrelated hair or body pixels in the generated walk poses.
+        palette_bases = bases[:]
+        bases = [stable_eyes(base, avatar_id, view, 0) for base, view in zip(bases, VIEWS)]
         sheet = Image.new('RGBA', (320, 216))
         walking = []
         drawn = Image.open(HERE / f'walk-{avatar_id}-source.png').convert('RGBA')
         for row, (direction, base) in enumerate(zip(VIEWS, bases)):
             base.save(OUT / f'{avatar_id}-{direction}.png')
             sheet.paste(base, (0, row * 72))
-            poses = walk_frames(drawn, base, row)
+            poses = walk_frames(drawn, palette_bases[row], row, avatar_id)
             assert len({pose.tobytes() for pose in poses}) == 4, (avatar_id, direction)
             for step, pose in enumerate(poses):
                 pose.save(OUT / f'{avatar_id}-{direction}-{step + 1:02}.png', optimize=True)
