@@ -43,9 +43,16 @@ describe('doughStage', () => {
     expect(doughStage(baseTask(), START - HOUR)).toBe('soft');
   });
 
-  it('긴 할 일은 시작 후 최대 1시간까지 말랑 반죽이에요', () => {
-    expect(doughStage(baseTask(), START + 59 * 60 * 1000)).toBe('soft');
-    expect(doughStage(baseTask(), START + 61 * 60 * 1000)).toBe('grumpy');
+  it('긴 할 일도 기간의 20%까지는 말랑 반죽이에요 (최대값 없음, 10일짜리면 2일)', () => {
+    expect(doughStage(baseTask(), START + 2 * DAY - HOUR)).toBe('soft');
+    expect(doughStage(baseTask(), START + 2 * DAY + HOUR)).toBe('grumpy');
+  });
+
+  it('하루 가까운 일은 몇 시간 여유가 있어요 (18시간 42분짜리면 약 3시간 44분)', () => {
+    const t = createTask({ id: 'c', title: '캡스톤 ppt', startAt: START, dueAt: START + 18 * HOUR + 42 * 60 * 1000 });
+    expect(doughStage(t, START + HOUR + 7 * 60 * 1000)).toBe('soft'); // 진행 6%일 때 (전에는 1시간 만에 심술)
+    expect(doughStage(t, START + 3 * HOUR + 40 * 60 * 1000)).toBe('soft');
+    expect(doughStage(t, START + 3 * HOUR + 50 * 60 * 1000)).toBe('grumpy');
   });
 
   it('짧은 할 일은 기간의 20%까지만 여유를 줘요 (1시간짜리면 12분)', () => {
@@ -54,8 +61,8 @@ describe('doughStage', () => {
     expect(doughStage(short, START + 13 * 60 * 1000)).toBe('grumpy');
   });
 
-  it('시작일이 지나도 집중을 안 했으면 심술 반죽이에요', () => {
-    expect(doughStage(baseTask(), START + DAY)).toBe('grumpy');
+  it('여유 시간이 지나도 집중을 안 했으면 심술 반죽이에요', () => {
+    expect(doughStage(baseTask(), START + 3 * DAY)).toBe('grumpy');
   });
 
   it('한 번이라도 집중했으면 마감 전까지 말랑 반죽이에요', () => {

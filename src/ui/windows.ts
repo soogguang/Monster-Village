@@ -778,7 +778,7 @@ const HELP_SECTIONS: { id: string; title: string; html: string }[] = [
     html: `<ul>
       <li>할 일 창(<kbd>T</kbd>)에서 <b>제목 · 시작 · 마감</b>을 적어 등록해요.</li>
       <li>🫧 <b>말랑 반죽</b>: 막 등록한 상태예요.</li>
-      <li>😤 <b>심술 반죽</b>: 시작하고 여유 시간(기간의 ${pct(RULES.grumpyGraceRatio)}, 최대 ${RULES.grumpyGraceMaxMinutes}분)이 지나도 한 번도 집중하지 않았어요.</li>
+      <li>😤 <b>심술 반죽</b>: 시작하고 여유 시간(기간의 ${pct(RULES.grumpyGraceRatio)})이 지나도 한 번도 집중하지 않았어요. 1분 이상 집중하면 다시 말랑해져요.</li>
       <li>👾 <b>몬스터</b>: 마감이 지났어요.</li>
       <li>집중하는 동안에는 어느 단계든 졸려서 얌전해져요 (z z).</li>
       <li>마감을 뒤로 미루면 미룬 횟수가 남고, 방 친구들에게도 보여요.</li>

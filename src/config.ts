@@ -25,10 +25,8 @@ export const RULES = {
   rareChanceVeryEarly: 0.4,
   /** 그냥 일찍 끝냈을 때 희귀 새싹이 나올 확률 */
   rareChanceEarly: 0.05,
-  /** 시작 후 여유 시간: 할 일 기간의 이 비율만큼은 집중을 안 했어도 말랑 반죽으로 봐줘요 */
+  /** 시작 후 여유 시간: 할 일 기간의 이 비율만큼은 집중을 안 했어도 말랑 반죽으로 봐줘요 (최대값 없음, 2026-11-08) */
   grumpyGraceRatio: 0.2,
-  /** 여유 시간의 최대값(분) */
-  grumpyGraceMaxMinutes: 60,
 } as const;
 
 /** 집중 습관 기준값 (분) */
