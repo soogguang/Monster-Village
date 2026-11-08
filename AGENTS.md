@@ -198,6 +198,7 @@
 - **동네 이름(닉네임, 사용자 승인):** 처음 로그인하면 "동네에서 쓸 이름을 정해 주세요" 창이 떠요. 카카오 닉네임을 받았으면 미리 채우고, 거절했으면 빈칸이에요.
   1~12자, 앞뒤 공백 제거, 다른 사람과 같은 이름도 허용. 오른쪽 위 👤 이름을 눌러 언제든 바꿔요(`profiles.nickname`).
   정했다는 표시는 계정 정보(`user_metadata.nickname_confirmed`)에 남겨서 다른 기기에서 다시 묻지 않아요. 카카오 동의 항목은 닉네임·프로필 사진 모두 **선택 동의**예요.
+  Supabase는 기본으로 이메일까지 요청해서(비즈 앱이 아니면 KOE205 오류) 로그인할 때 `scope`를 `profile_nickname profile_image`로 바꿔 보내요(`src/net/supabase.ts`).
 - 연결 값: `.env.local`(내 컴퓨터) 또는 Vercel 환경 변수에 `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` (`.env.example` 참고).
   카카오 REST API 키와 Client Secret은 코드에 넣지 않고 Supabase 대시보드에만 넣어요.
 

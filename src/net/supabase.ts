@@ -20,7 +20,12 @@ export function getSupabase(): SupabaseClient | null {
 export async function signInWithKakao(client: SupabaseClient): Promise<void> {
   const { error } = await client.auth.signInWithOAuth({
     provider: 'kakao',
-    options: { redirectTo: window.location.origin + window.location.pathname },
+    options: {
+      redirectTo: window.location.origin + window.location.pathname,
+      // Supabase는 기본으로 이메일(account_email)까지 요청하는데, 이메일 동의는 비즈 앱만 켤 수 있어서 KOE205 오류가 나요.
+      // 그래서 우리가 켜 둔 동의 항목(닉네임·프로필 사진)만 요청해요. Supabase의 "Allow users without an email"도 켜 둬야 해요.
+      queryParams: { scope: 'profile_nickname profile_image' },
+    },
   });
   if (error) throw error;
 }
