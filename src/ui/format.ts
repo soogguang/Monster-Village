@@ -43,6 +43,19 @@ export function formatElapsed(ms: number): string {
   return h ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
 }
 
+/** 집중 시간: "1시간 20분", "45분", "0분" */
+export function formatDuration(ms: number): string {
+  const m = Math.floor(Math.max(0, ms) / 60000);
+  const h = Math.floor(m / 60);
+  return h ? `${h}시간${m % 60 ? ` ${m % 60}분` : ''}` : `${m}분`;
+}
+
+/** 짧은 집중 시간 (달력 칸): "1:20", "0:45" */
+export function formatDurationShort(ms: number): string {
+  const m = Math.floor(Math.max(0, ms) / 60000);
+  return `${Math.floor(m / 60)}:${pad(m % 60)}`;
+}
+
 /** <input type="datetime-local">에 넣을 값 */
 /**
  * 달력에서 날짜 하나를 눌러 할 일을 만들 때 기본 시작 시각.

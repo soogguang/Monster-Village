@@ -4,13 +4,13 @@
 import { FRIENDSHIP, RULES } from '../config';
 import { roomView, type RoomViewState } from '../net/rooms';
 import { friendshipStage } from '../rules/friendship';
-import { HABIT_IDS } from '../rules/habits';
-import { TASK_COLORS, doughStage, isTaskColor, progressRatio, type CalendarStyle, type Task, type TaskColor } from '../rules/task';
+import { HABIT_IDS, focusByTask, focusTotal, localDayRange } from '../rules/habits';
+import { TASK_COLORS, doughStage, isStuckGrumpy, isTaskColor, progressRatio, type CalendarStyle, type Task, type TaskColor } from '../rules/task';
 import { TASK_COLOR_STYLE, colorOf, layoutWeek } from './calendarLayout';
 import type { GameState, GameStore, Resident } from '../store';
 import {
   DAY, HABIT_TEXT, RESIDENT_TEXT, STAGE_TEXT, WEEKDAYS, heartsText,
-  defaultStartForDay, escapeHtml, formatDate, fromLocalInput, startOfDay, toLocalInput, toTimeInput, todayAt,
+  defaultStartForDay, escapeHtml, formatDate, formatDuration, formatDurationShort, fromLocalInput, startOfDay, toLocalInput, toTimeInput, todayAt,
 } from './format';
 
 export interface WindowContext {
@@ -198,7 +198,7 @@ function taskSlot(t: Task, state: GameState, inToday: boolean): string {
       <div class="row">
         <span class="grow">${colorDot(t)}${escapeHtml(t.title)}</span>
         ${t.dueExtensions ? `<span class="badge warn">연장 ${t.dueExtensions}회 👀</span>` : ''}
-        <span class="badge">${focusing ? '😪 졸림' : STAGE_TEXT[doughStage(t, now)]}</span>
+        <span class="badge">${focusing ? '😪 졸림' : isStuckGrumpy(t, now) ? '😤 굳은 심술' : STAGE_TEXT[doughStage(t, now)]}</span>
       </div>
       <div class="meta">${(t.calendarStyle ?? 'due') === 'range' ? '▬' : '📌'} ${formatDate(t.startAt)} → ${formatDate(t.dueAt)} · 진행 ${Math.round(ratio * 100)}% · 집중 ${t.focusMinutes}분</div>
       <div class="actions">
@@ -313,6 +313,7 @@ export const calendarWindow: GameWindow = {
         </div>
         <div>
           <h3 class="day-title"></h3>
+          <div class="day-focus"></div>
           <div class="day-list"></div>
           <div class="draft"></div>
         </div>
@@ -339,7 +340,10 @@ export const calendarWindow: GameWindow = {
             : `<div class="cal-slot cal-item ${t.completedAt !== undefined ? 'done' : ''}" title="${escapeHtml(t.title)}">${colorDot(t)}<span class="t">${escapeHtml(t.title)}</span>${dueTime(t.dueAt)}</div>`).join('');
           const more = cell.hidden ? `<div class="cal-more">+${cell.hidden}개</div>` : '';
           const cls = ['cal-day', day.getMonth() !== month.getMonth() ? 'other' : '', dayStart === today ? 'today' : '', dayStart === selected ? 'selected' : '', inDrag(dayStart) ? 'dragging' : ''].join(' ');
-          return `<div class="${cls}" data-day="${dayStart}"><span class="num">${day.getDate()}</span>${rows}${more}</div>`;
+          // 그날 집중한 시간 (1분 이상일 때만)
+          const focusMs = focusTotal(state.sessions, dayStart, days[col + 1]?.getTime() ?? dayStart + DAY, state.focus);
+          const focus = focusMs >= 60000 ? `<span class="cal-focus" title="이날 집중 ${formatDuration(focusMs)}">🔥${formatDurationShort(focusMs)}</span>` : '';
+          return `<div class="${cls}" data-day="${dayStart}"><span class="num">${day.getDate()}${focus}</span>${rows}${more}</div>`;
         }).join('');
         const bars = layout.bars.map((b) => {
           const { bg, edge } = TASK_COLOR_STYLE[colorOf(b.task)];
@@ -353,6 +357,16 @@ export const calendarWindow: GameWindow = {
 
       const d = new Date(selected);
       body.querySelector('.day-title')!.textContent = `${d.getMonth() + 1}월 ${d.getDate()}일 (${WEEKDAYS[d.getDay()]})`;
+      // 이날 집중한 시간과 할 일별 시간
+      const range = localDayRange(selected);
+      const byTask = [...focusByTask(state.sessions, range.from, range.to, state.focus)].filter(([, ms]) => ms >= 60000).sort((a, b) => b[1] - a[1]);
+      const total = byTask.reduce((sum, [, ms]) => sum + ms, 0);
+      body.querySelector('.day-focus')!.innerHTML = total
+        ? `<div class="slot day-focus-box"><strong>🔥 이날 집중 ${formatDuration(total)}</strong>${byTask.map(([id, ms]) => {
+            const t = state.tasks.find((x) => x.id === id);
+            return `<div class="meta">${t ? colorDot(t) : ''}${escapeHtml(t?.title ?? '지운 할 일')} · ${formatDuration(ms)}</div>`;
+          }).join('')}</div>`
+        : '';
       const items = tasksOnDay(state.tasks, selected);
       body.querySelector('.day-list')!.innerHTML = items.length
         ? items.map(({ task, isDue }) => `<div class="slot"><div class="row"><span class="grow">${task.completedAt !== undefined ? '✅ ' : ''}${colorDot(task)}${escapeHtml(task.title)}</span>${isDue ? '<span class="badge warn">마감</span>' : ''}</div><div class="meta">${formatDate(task.startAt)} → ${formatDate(task.dueAt)}</div></div>`).join('')
@@ -428,7 +442,9 @@ export const calendarWindow: GameWindow = {
 
     render(ctx.store.get());
     const unsubscribe = ctx.store.subscribe((s) => render(s));
-    return () => { unsubscribe(); window.removeEventListener('pointerup', finishDrag); };
+    // 집중 중이면 오늘 집중 시간이 늘어나니까 1분마다 다시 그려요. (끄는 중에는 그리지 않아요)
+    const tick = window.setInterval(() => { if (!drag && ctx.store.get().focus) render(ctx.store.get()); }, 60 * 1000);
+    return () => { unsubscribe(); window.clearInterval(tick); window.removeEventListener('pointerup', finishDrag); };
   },
 };
 
@@ -638,11 +654,16 @@ export const roomsWindow: GameWindow = {
         return;
       }
       const presence = new Map(rs.online.map((p) => [p.userId, p]));
+      const today = localDayRange(Date.now());
       const members = rs.members.map((m) => {
         const p = presence.get(m.userId);
         const state = p?.focusingOn ? `🔥 집중 중 · ${escapeHtml(p.focusingOn)}` : p ? '🟢 접속 중' : '⚪ 오프라인';
         const residents = (m.save?.residents ?? []).length;
+        // 오늘 집중한 시간: 나는 지금 내 데이터로, 친구는 친구가 저장한 집중 기록으로 (지금 집중 중이면 그 시간까지)
+        const data = m.userId === me ? ctx.store.get() : m.save;
+        const todayMs = focusTotal(data?.sessions ?? [], today.from, today.to, data?.focus ?? null);
         return `<div class="slot"><div class="row"><strong class="grow">${escapeHtml(m.nickname)}${m.userId === me ? ' (나)' : ''}</strong>
+          <span class="badge" title="오늘 집중한 시간">🔥 ${formatDuration(todayMs)}</span>
           ${m.userId === me ? '' : `<button class="px-btn small ghost" data-act="bell" data-id="${m.userId}" title="응원의 종 치기">${section === 'members' ? '🔔 응원하기' : '🔔'}</button>`}</div>
           <div class="meta">${state} · 주민 ${residents}명</div></div>`;
       }).join('');
@@ -735,8 +756,12 @@ export const roomsWindow: GameWindow = {
       }
     });
 
-    render(roomView.state);
-    return roomView.subscribe(render);
+    // 방 상태가 바뀌거나(친구 집중 시작·끝) 1분이 지날 때마다 다시 그려요. 적던 입력 칸은 그대로 둬요.
+    const redraw = (rs: RoomViewState) => keepInputs(body, () => render(rs));
+    redraw(roomView.state);
+    const off = roomView.subscribe(redraw);
+    const tick = window.setInterval(() => redraw(roomView.state), 60 * 1000);
+    return () => { off(); window.clearInterval(tick); };
   },
 };
 
@@ -777,9 +802,9 @@ const HELP_SECTIONS: { id: string; title: string; html: string }[] = [
     id: 'tasks', title: '📋 할 일과 반죽',
     html: `<p>할 일 창(<kbd>T</kbd>)에서 <b>제목 · 시작 · 마감</b>을 적어 등록하면 마당에 반죽이 생겨요. 반죽은 이렇게 변해요.</p>
       <div class="help-doughs">
-        <figure><img src="{{chars}}dough-soft.png" alt="말랑 반죽" draggable="false" /><figcaption><b>🫧 말랑 반죽</b>막 등록한 상태예요. 집중을 한 번이라도 하면 마감 전까지 계속 말랑해요.</figcaption></figure>
+        <figure><img src="{{chars}}dough-soft.png" alt="말랑 반죽" draggable="false" /><figcaption><b>🫧 말랑 반죽</b>막 등록한 상태예요. 기간의 ${pct(RULES.grumpyGraceRatio)} 전에 한 번이라도 집중하면 마감 전까지 계속 말랑해요.</figcaption></figure>
         <span class="arrow" aria-hidden="true">→</span>
-        <figure><img src="{{chars}}dough-grumpy.png" alt="심술 반죽" draggable="false" /><figcaption><b>😤 심술 반죽</b>시작하고 여유 시간(기간의 ${pct(RULES.grumpyGraceRatio)})이 지나도 한 번도 집중하지 않았어요. 1분 이상 집중하면 다시 말랑해져요.</figcaption></figure>
+        <figure><img src="{{chars}}dough-grumpy.png" alt="심술 반죽" draggable="false" /><figcaption><b>😤 심술 반죽</b>기간의 ${pct(RULES.grumpyGraceRatio)}가 지나도 한 번도 집중하지 않았어요. ${pct(RULES.grumpyStuckRatio)} 전에 1분 이상 집중하면 다시 말랑해져요. 그때까지 안 하면 <b>굳은 심술</b>이 돼서 더는 풀리지 않아요.</figcaption></figure>
         <span class="arrow" aria-hidden="true">→</span>
         <figure><img src="{{chars}}dough-monster.png" alt="몬스터 반죽" draggable="false" /><figcaption><b>👾 몬스터 반죽</b>끝내지 못한 채 마감이 지났어요. 말랑이든 심술이든 마감을 넘기면 몬스터 반죽이 돼요.</figcaption></figure>
       </div>
@@ -795,16 +820,18 @@ const HELP_SECTIONS: { id: string; title: string; html: string }[] = [
       <li>왼쪽 위 상태 상자에서 할 일을 고르고 <b>🔥 집중</b>을 눌러요. 끝낼 때는 <b>집중 끝내기</b>.</li>
       <li>방 마을에서는 <b>모닥불</b> 앞에서 <kbd>E</kbd>를 눌러도 집중을 시작할 수 있어요. 같이 집중하는 친구가 많을수록 모닥불이 커져요.</li>
       <li>창을 닫거나 노트북이 잠들어서 연결이 5분 넘게 끊기면, 마지막으로 연결된 시각에 집중이 끝난 것으로 기록돼요.</li>
+      <li><b>오늘 집중 시간</b>은 왼쪽 위 상태 상자에, 날마다의 집중 시간은 캘린더 날짜 칸(🔥1:20)에 보여요. 날짜를 누르면 할 일별 시간도 볼 수 있어요.</li>
     </ul>`,
   },
   {
     id: 'residents', title: '🌱 주민 만나기',
-    html: `<p>할 일을 끝낸 시점(시작~마감 중 어디쯤인지)과 집중 여부로 주민이 정해져요.</p>
+    html: `<p>할 일을 끝낸 시점(시작~마감 중 어디쯤인지)과 반죽 상태로 주민이 정해져요.</p>
       <table class="help-table"><thead><tr><th>끝낸 시점</th><th>태어나는 주민</th></tr></thead><tbody>
         <tr><td>기간의 ${pct(RULES.veryEarlyRatio)} 이전</td><td>🌱 새싹 (✨ 희귀가 잘 나와요)</td></tr>
         <tr><td>${pct(RULES.veryEarlyRatio)} ~ ${pct(RULES.lateRatio)}</td><td>🌱 새싹</td></tr>
-        <tr><td>${pct(RULES.lateRatio)} 이후 또는 마감 후 · ${RULES.focusMinutesForSleepy}분 이상 집중함</td><td>😴 꾸벅이</td></tr>
-        <tr><td>${pct(RULES.lateRatio)} 이후 또는 마감 후 · 집중 부족</td><td>😈 말썽</td></tr>
+        <tr><td>${pct(RULES.lateRatio)} 이후 · 처음부터 말랑 (${pct(RULES.grumpyGraceRatio)} 전에 집중)</td><td>🌱 새싹</td></tr>
+        <tr><td>${pct(RULES.lateRatio)} 이후 · 심술이었다가 집중해서 풀림</td><td>😴 꾸벅이</td></tr>
+        <tr><td>${pct(RULES.lateRatio)} 이후 · 굳은 심술 / 마감 후(몬스터 반죽)</td><td>😈 말썽</td></tr>
       </tbody></table>
       <ul>
         <li>같은 주민을 또 만나면 친밀도 ♥가 올라요. ♥${FRIENDSHIP.friendHearts}이면 친해져서 가끔 다가와 인사하고, ♥${FRIENDSHIP.evolveHearts}이면 진화해요.</li>
@@ -833,6 +860,7 @@ const HELP_SECTIONS: { id: string; title: string; html: string }[] = [
       <li>마을에서는 친구 마당에 걸어가서 친구 주민을 구경할 수 있어요.</li>
       <li>🌳 <b>수호나무</b>: 방 친구 누구나 같이 할 일을 걸고 끝낼 수 있어요.</li>
       <li>🔥 <b>모닥불</b>: 같이 집중해요. 🔔 <b>응원의 종</b>: 친구를 골라 응원을 보내요.</li>
+      <li>방 창에서 멤버마다 <b>오늘 집중한 시간</b>을 볼 수 있어요.</li>
       <li>마을에서 <b>내 집 앞에서 <kbd>E</kbd></b>를 누르면 내 집으로 돌아와요. 집에 있어도 종 알림과 친구 상태는 계속 받아요.</li>
     </ul>`,
   },

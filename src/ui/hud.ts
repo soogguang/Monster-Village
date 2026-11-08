@@ -1,9 +1,8 @@
 // 게임 화면 위에 올리는 UI: 왼쪽 위 상태 상자, 아래 버튼 줄, 가운데 창, 알림
 
-import { RULES } from '../config';
-import type { HabitId } from '../rules/habits';
+import { focusTotal, localDayRange, type HabitId } from '../rules/habits';
 import type { CompleteResult, GameStore } from '../store';
-import { HABIT_TEXT, RESIDENT_TEXT, escapeHtml, formatClock, formatElapsed, heartsText } from './format';
+import { HABIT_TEXT, RESIDENT_TEXT, escapeHtml, formatClock, formatDuration, formatElapsed, heartsText } from './format';
 import { roomView } from '../net/rooms';
 import { LANDMARK_TEXT, type LandmarkId, type VillageActions } from '../world/interactions';
 import { HELP_SEEN_KEY, WINDOWS, bellWindow, focusWindow, helpWindow, treeWindow, type GameWindow, type WindowContext } from './windows';
@@ -14,6 +13,7 @@ export function mountHud(store: GameStore, characterDir: string): VillageActions
     `
     <section id="status" class="px-box" aria-label="상태">
       <div class="clock"><span class="date"></span><span class="time"></span></div>
+      <div class="today-focus" title="오늘(0시부터) 집중한 시간. 지금 집중 중인 시간도 더해요"></div>
       <div class="presence"><span class="dot"></span><span class="state"></span><span class="timer"></span><span class="task"></span></div>
       <div class="focus-row"></div>
     </section>
@@ -149,6 +149,8 @@ export function mountHud(store: GameStore, characterDir: string): VillageActions
     status.querySelector('.date')!.textContent = date;
     status.querySelector('.time')!.textContent = time;
     const state = store.get();
+    const today = localDayRange(now);
+    status.querySelector('.today-focus')!.textContent = `🔥 오늘 집중 ${formatDuration(focusTotal(state.sessions, today.from, today.to, state.focus, now))}`;
     const focusTask = state.focus && state.tasks.find((t) => t.id === state.focus!.taskId);
     const presence = status.querySelector('.presence')!;
     presence.classList.toggle('focusing', Boolean(focusTask));
@@ -217,7 +219,7 @@ function birthMessage({ resident: r, species, newUnlocks, isNew, stageUp }: Comp
     : `"${name}"을(를) 다시 만났어요! 친밀도 ${heartsText(r.hearts)}`;
   if (stageUp === 'friend') text += `\n💕 "${name}"와(과) 친해졌어요! 가끔 인사하러 올 거예요.`;
   if (stageUp === 'evolved') text += `\n🌟 "${name}"이(가) 진화할 만큼 친해졌어요!`;
-  if (r.kind === 'sleepy') text += `\n(집중 ${RULES.focusMinutesForSleepy}분 이상 덕분에 개과천선)`;
+  if (r.kind === 'sleepy') text += '\n(늦었지만 심술이 굳기 전에 집중해서 개과천선)';
   if (newUnlocks.length) text += `\n${unlockMessage(newUnlocks)}`;
   return text;
 }

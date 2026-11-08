@@ -17,16 +17,16 @@ export function pickPixelScale(windowHeight: number): number {
 export const RULES = {
   /** 진행 비율이 이 값 이하면 "아주 일찍" 끝낸 것으로 봐요 (희귀 확률 높음) */
   veryEarlyRatio: 0.3,
-  /** 진행 비율이 이 값 이상이면 "늦게" 끝낸 것으로 봐요 (꾸벅이 또는 말썽) */
-  lateRatio: 0.8,
-  /** 늦게 끝냈을 때 꾸벅이 주민이 되려면 필요한 총 집중 시간(분) */
-  focusMinutesForSleepy: 25,
+  /** 진행 비율이 이 값 이상이면 "늦게" 끝낸 것으로 봐요 (꾸벅이 또는 말썽). 2026-11-08 80% → 75% */
+  lateRatio: 0.75,
   /** 아주 일찍 끝냈을 때 희귀 새싹이 나올 확률 */
   rareChanceVeryEarly: 0.4,
   /** 그냥 일찍 끝냈을 때 희귀 새싹이 나올 확률 */
   rareChanceEarly: 0.05,
-  /** 시작 후 여유 시간: 할 일 기간의 이 비율만큼은 집중을 안 했어도 말랑 반죽으로 봐줘요 (최대값 없음, 2026-11-08) */
-  grumpyGraceRatio: 0.2,
+  /** 심술이 시작되는 시점: 기간의 이 비율까지 한 번도 집중을 안 했으면 심술 반죽 (2026-11-08 20% → 50%) */
+  grumpyGraceRatio: 0.5,
+  /** 심술이 굳는 시점: 이때까지 한 번도 집중을 안 했으면 굳은 심술. 그 뒤에 집중해도 말랑으로 안 돌아가요 */
+  grumpyStuckRatio: 0.75,
 } as const;
 
 /** 집중 습관 기준값 (분) */

@@ -240,7 +240,7 @@ export class GameStore {
     if (!focus) return [];
     const session: FocusSession = { taskId: focus.taskId, startedAt: focus.startedAt, endedAt: Math.max(focus.startedAt, endedAt) };
     const minutes = Math.floor((session.endedAt - session.startedAt) / MINUTE);
-    const tasks = this.state.tasks.map((t) => (t.id === focus.taskId ? addFocus(t, minutes) : t));
+    const tasks = this.state.tasks.map((t) => (t.id === focus.taskId ? addFocus(t, minutes, session.startedAt) : t));
     const sessions = session.endedAt > session.startedAt ? [...this.state.sessions, session] : this.state.sessions;
     const { unlocks, newUnlocks } = this.checkUnlocks(tasks, sessions);
     this.set({ ...this.state, tasks, sessions, unlocks, focus: null });
@@ -337,7 +337,7 @@ export class LocalStorage implements Storage {
 export function normalizeState(saved: Partial<GameState> | null | undefined): GameState {
   return {
     avatarId: normalizeAvatarId(saved?.avatarId),
-    tasks: saved?.tasks ?? [],
+    tasks: withFirstFocus(saved?.tasks ?? [], saved?.sessions ?? []),
     residents: mergeDuplicateResidents(
       (saved?.residents ?? []).map((r) => ({ ...r, speciesId: r.speciesId ?? null, hearts: r.hearts ?? 1, visible: r.visible ?? true })),
     ),
@@ -348,6 +348,18 @@ export function normalizeState(saved: Partial<GameState> | null | undefined): Ga
     lastSeenAt: saved?.lastSeenAt ?? null,
     updatedAt: saved?.updatedAt ?? 0,
   };
+}
+
+/**
+ * 예전 데이터에는 처음 집중한 시각(firstFocusAt)이 없어요. 집중 기록에서 찾아 채우고,
+ * 기록이 없는데 집중 시간만 있으면 일찍 손을 댄 것으로 봐서 시작 시각으로 채워요.
+ */
+function withFirstFocus(tasks: Task[], sessions: FocusSession[]): Task[] {
+  return tasks.map((t) => {
+    if (t.firstFocusAt !== undefined || t.focusMinutes <= 0) return t;
+    const first = sessions.filter((s) => s.taskId === t.id && s.endedAt - s.startedAt >= MINUTE).reduce((min, s) => Math.min(min, s.startedAt), Infinity);
+    return { ...t, firstFocusAt: Number.isFinite(first) ? first : t.startAt };
+  });
 }
 
 /** 친밀도 기능 전에 저장된 데이터에는 같은 캐릭터가 여러 명 있을 수 있어서, 한 명으로 합치고 ♥를 더해요. */

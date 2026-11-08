@@ -82,3 +82,40 @@ export function localDayKey(ms: number): string {
   const d = new Date(ms);
   return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
 }
+
+// ---------------------------------------------------------------- 하루 집중 시간
+
+/** 그날 0시와 다음 날 0시 (내 시간대 기준) */
+export function localDayRange(ms: number): { from: number; to: number } {
+  const d = new Date(ms);
+  const from = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const to = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).getTime();
+  return { from, to };
+}
+
+/**
+ * 구간(from~to) 안에서 할 일마다 집중한 시간(ms). 구간을 걸친 집중은 안쪽만 세요. (예: 밤 11시~새벽 1시면 하루에 1시간씩)
+ * 지금 집중 중이면(ongoing) 지금까지의 시간도 더해요.
+ */
+export function focusByTask(
+  sessions: FocusSession[],
+  from: number,
+  to: number,
+  ongoing?: { taskId: string; startedAt: number } | null,
+  now = Date.now(),
+): Map<string, number> {
+  const all = ongoing ? [...sessions, { taskId: ongoing.taskId, startedAt: ongoing.startedAt, endedAt: now }] : sessions;
+  const byTask = new Map<string, number>();
+  for (const s of all) {
+    const ms = Math.min(s.endedAt, to) - Math.max(s.startedAt, from);
+    if (ms > 0) byTask.set(s.taskId, (byTask.get(s.taskId) ?? 0) + ms);
+  }
+  return byTask;
+}
+
+/** 구간(from~to) 안에서 집중한 시간 합(ms) */
+export function focusTotal(...args: Parameters<typeof focusByTask>): number {
+  let total = 0;
+  for (const ms of focusByTask(...args).values()) total += ms;
+  return total;
+}

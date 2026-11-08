@@ -8,7 +8,7 @@ import Phaser from 'phaser';
 import { AVATARS, AVATAR_FRAME, AVATAR_ROWS, avatarRow, avatarTexture, avatarWalk, facingForMovement, type Facing } from '../avatars';
 import { FRIENDSHIP, TILE_SIZE, pickPixelScale } from '../config';
 import { roomView, type RoomViewState } from '../net/rooms';
-import { doughStage, type DoughStage, type Task } from '../rules/task';
+import { doughStage, isStuckGrumpy, type DoughStage, type Task } from '../rules/task';
 import type { GameState, GameStore, Resident } from '../store';
 import { buildTiles, createHomeLayout, createVillageLayout, withMinWidth, type Rect, type Spot, type VillageLayout, type YardPlan } from '../world/layout';
 import { MEADOW_TILES, grassTileAt, villageDecor, worldBlocks } from '../world/decor';
@@ -426,7 +426,7 @@ export class VillageScene extends Phaser.Scene {
       const sleepy = state.focus?.taskId === task.id;
       view.sprite.setTexture(`dough-${stage}`);
       view.zzz.setVisible(sleepy);
-      view.label.setText(`${shorten(task.title)}\n${sleepy ? '졸림' : STAGE_LABELS[stage]}`);
+      view.label.setText(`${shorten(task.title)}\n${sleepy ? '졸림' : stage === 'grumpy' && isStuckGrumpy(task, now) ? '굳은 심술' : STAGE_LABELS[stage]}`);
     });
 
     // 마당에 나오기를 켠 주민만 그려요.

@@ -79,6 +79,7 @@ button, input, select { font: inherit; color: inherit; }
 }
 #status .clock { display: flex; justify-content: space-between; align-items: baseline; }
 #status .clock .time { font-family: 'Galmuri14', 'Galmuri11', sans-serif; font-size: 22px; }
+#status .today-focus { font-size: 12px; color: var(--ink-soft); margin: -2px 0 2px; }
 #status .presence { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 2px 6px; padding: 4px 6px; background: var(--paper-light); border: 2px solid var(--paper-shade); }
 #status .presence .task { grid-column: 2 / -1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-soft); }
 #status .presence .task:empty { display: none; }
@@ -161,7 +162,9 @@ button, input, select { font: inherit; color: inherit; }
 .cal-week { position: relative; }
 .cal-grid .wd { text-align: center; font-size: 11px; color: var(--ink-soft); padding-bottom: 2px; }
 .cal-grid .wd:first-child { color: var(--berry); }
-.cal-day .num { height: 14px; line-height: 14px; flex: none; }
+.cal-day .num { height: 14px; line-height: 14px; flex: none; display: flex; justify-content: space-between; gap: 2px; }
+.cal-focus { font-size: 9px; color: #c4602a; white-space: nowrap; }
+.day-focus-box { margin-bottom: 6px; background: #fff3dc; }
 .cal-slot { height: 14px; flex: none; }
 .cal-bars { position: absolute; inset: 0; pointer-events: none; }
 .cal-bar {

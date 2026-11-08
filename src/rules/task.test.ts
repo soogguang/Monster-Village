@@ -5,6 +5,7 @@ import {
   decideResident,
   doughStage,
   extendDue,
+  isStuckGrumpy,
   progressRatio,
 } from './task';
 
@@ -43,39 +44,46 @@ describe('doughStage', () => {
     expect(doughStage(baseTask(), START - HOUR)).toBe('soft');
   });
 
-  it('긴 할 일도 기간의 20%까지는 말랑 반죽이에요 (최대값 없음, 10일짜리면 2일)', () => {
-    expect(doughStage(baseTask(), START + 2 * DAY - HOUR)).toBe('soft');
-    expect(doughStage(baseTask(), START + 2 * DAY + HOUR)).toBe('grumpy');
+  // 10일짜리 일: 50% = 5일째(심술 시작), 75% = 7.5일째(심술이 굳어요)
+  const focusAt = (day: number) => addFocus(baseTask(), 10, START + day * DAY);
+
+  it('기간의 50%까지는 집중 안 해도 말랑 반죽이에요', () => {
+    expect(doughStage(baseTask(), START + 5 * DAY - HOUR)).toBe('soft');
+    expect(doughStage(baseTask(), START + 5 * DAY + HOUR)).toBe('grumpy');
   });
 
-  it('하루 가까운 일은 몇 시간 여유가 있어요 (18시간 42분짜리면 약 3시간 44분)', () => {
-    const t = createTask({ id: 'c', title: '캡스톤 ppt', startAt: START, dueAt: START + 18 * HOUR + 42 * 60 * 1000 });
-    expect(doughStage(t, START + HOUR + 7 * 60 * 1000)).toBe('soft'); // 진행 6%일 때 (전에는 1시간 만에 심술)
-    expect(doughStage(t, START + 3 * HOUR + 40 * 60 * 1000)).toBe('soft');
-    expect(doughStage(t, START + 3 * HOUR + 50 * 60 * 1000)).toBe('grumpy');
-  });
-
-  it('짧은 할 일은 기간의 20%까지만 여유를 줘요 (1시간짜리면 12분)', () => {
+  it('짧은 할 일도 같은 비율이에요 (1시간짜리면 30분부터 심술)', () => {
     const short = createTask({ id: 's', title: '짧은 일', startAt: START, dueAt: START + HOUR });
-    expect(doughStage(short, START + 11 * 60 * 1000)).toBe('soft');
-    expect(doughStage(short, START + 13 * 60 * 1000)).toBe('grumpy');
+    expect(doughStage(short, START + 29 * 60 * 1000)).toBe('soft');
+    expect(doughStage(short, START + 31 * 60 * 1000)).toBe('grumpy');
   });
 
-  it('여유 시간이 지나도 집중을 안 했으면 심술 반죽이에요', () => {
-    expect(doughStage(baseTask(), START + 3 * DAY)).toBe('grumpy');
+  it('50% 전에 한 번이라도 집중했으면 마감 전까지 계속 말랑이에요', () => {
+    expect(doughStage(focusAt(1), START + 9 * DAY)).toBe('soft');
   });
 
-  it('한 번이라도 집중했으면 마감 전까지 말랑 반죽이에요', () => {
-    expect(doughStage(addFocus(baseTask(), 10), START + DAY)).toBe('soft');
+  it('심술이었다가 75% 전에 집중하면 다시 말랑이 돼요', () => {
+    expect(doughStage(baseTask(), START + 6 * DAY)).toBe('grumpy');
+    expect(doughStage(focusAt(6), START + 6 * DAY + HOUR)).toBe('soft');
+    expect(isStuckGrumpy(focusAt(6), START + 9 * DAY)).toBe(false);
   });
 
-  it('마감일이 지나면 집중 여부와 상관없이 찐 몬스터예요', () => {
-    expect(doughStage(addFocus(baseTask(), 60), DUE + HOUR)).toBe('monster');
+  it('75%까지 한 번도 집중 안 하면 굳은 심술: 그 뒤에 집중해도 풀리지 않아요', () => {
+    expect(isStuckGrumpy(baseTask(), START + 7 * DAY)).toBe(false); // 아직 75% 전
+    expect(isStuckGrumpy(baseTask(), START + 8 * DAY)).toBe(true);
+    const late = focusAt(8);
+    expect(doughStage(late, START + 8 * DAY + HOUR)).toBe('grumpy');
+    expect(isStuckGrumpy(late, START + 8 * DAY + HOUR)).toBe(true);
+  });
+
+  it('마감일이 지나면 집중 여부와 상관없이 몬스터 반죽이에요', () => {
+    expect(doughStage(focusAt(1), DUE + HOUR)).toBe('monster');
   });
 });
 
 describe('decideResident', () => {
   const always = (v: number) => () => v;
+  const focusAt = (day: number) => addFocus(baseTask(), 10, START + day * DAY);
 
   it('30% 이하에 끝내면 새싹이고 희귀 확률이 높아요', () => {
     const at = START + 3 * DAY;
@@ -83,24 +91,23 @@ describe('decideResident', () => {
     expect(decideResident(baseTask(), at, always(0.5))).toEqual({ kind: 'sprout', rare: false });
   });
 
-  it('30~80% 사이에 끝내면 새싹이고 희귀 확률은 낮아요', () => {
+  it('30~75% 사이에 끝내면 새싹이고 희귀 확률은 낮아요', () => {
     const at = START + 5 * DAY;
     expect(decideResident(baseTask(), at, always(0.3))).toEqual({ kind: 'sprout', rare: false });
     expect(decideResident(baseTask(), at, always(0.01))).toEqual({ kind: 'sprout', rare: true });
   });
 
-  it('80% 이상에 끝내면 집중 시간에 따라 꾸벅이 또는 말썽이에요', () => {
+  it('75% 이후에 끝내면 반죽이 지나온 길에 따라: 처음부터 말랑 → 새싹, 심술에서 풀림 → 꾸벅이, 굳은 심술 → 말썽', () => {
     const at = START + 9 * DAY;
-    expect(decideResident(addFocus(baseTask(), 25), at).kind).toBe('sleepy');
-    expect(decideResident(addFocus(baseTask(), 10), at).kind).toBe('trouble');
+    expect(decideResident(focusAt(2), at, always(0))).toEqual({ kind: 'sprout', rare: false }); // 희귀는 일찍 끝냈을 때만
+    expect(decideResident(focusAt(6), at).kind).toBe('sleepy');
+    expect(decideResident(baseTask(), at).kind).toBe('trouble');
+    expect(decideResident(focusAt(8), at).kind).toBe('trouble'); // 굳은 뒤에 집중
   });
 
-  it('마감 후에 끝내도 같은 규칙이고 희귀는 나오지 않아요', () => {
+  it('마감 후(몬스터 반죽)에 끝내면 집중했어도 말썽이에요', () => {
     const at = DUE + 2 * DAY;
-    expect(decideResident(addFocus(baseTask(), 30), at, always(0))).toEqual({
-      kind: 'sleepy',
-      rare: false,
-    });
+    expect(decideResident(focusAt(1), at, always(0))).toEqual({ kind: 'trouble', rare: false });
     expect(decideResident(baseTask(), at, always(0))).toEqual({ kind: 'trouble', rare: false });
   });
 });

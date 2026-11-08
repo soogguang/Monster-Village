@@ -15,9 +15,12 @@ function demoSize(): number {
 }
 const EXTRA_IDS = Array.from({ length: demoSize() - BASE_MEMBERS }, (_, i) => `f${i + 4}`);
 
-function friendSave(species: string[]): Partial<GameState> {
+/** 가짜 친구 데이터. focusMinutes만큼 오늘 집중한 기록도 넣어요 (방 창의 "오늘 집중 시간" 확인용) */
+function friendSave(species: string[], focusMinutes = 0): Partial<GameState> {
   const now = Date.now();
+  const end = Math.max(new Date(now).setHours(0, 0, 0, 0) + focusMinutes * 60 * 1000, now - 60 * 1000);
   return {
+    sessions: focusMinutes ? [{ taskId: 'demo', startedAt: end - focusMinutes * 60 * 1000, endedAt: end }] : [],
     residents: species.map((speciesId, i) => ({
       id: `${speciesId}-${i}`, kind: 'sprout', rare: false, speciesId, fromTask: '데모', bornAt: now - i * DAY, hearts: 1 + i, visible: true,
     })),
@@ -45,8 +48,8 @@ export class FakeRooms implements RoomBackend {
   async loadMembers(): Promise<RoomMember[]> {
     return [
       { userId: 'me', nickname: '나', save: null },
-      { userId: 'f1', nickname: '지우', save: friendSave(['sprout-cat', 'sprout-rabbit']) },
-      { userId: 'f2', nickname: '민준', save: friendSave(['sprout-mandu', 'sprout-puppy', 'sprout-cat']) },
+      { userId: 'f1', nickname: '지우', save: friendSave(['sprout-cat', 'sprout-rabbit'], 130) },
+      { userId: 'f2', nickname: '민준', save: friendSave(['sprout-mandu', 'sprout-puppy', 'sprout-cat'], 45) },
       { userId: 'f3', nickname: '서연', save: friendSave([]) },
       ...EXTRA_IDS.map((userId, i) => ({ userId, nickname: `친구${i + 4}`, save: friendSave(i % 2 ? ['sprout-cat'] : []) })),
     ];

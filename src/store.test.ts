@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CatalogEntry } from './rules/catalog';
-import { GameStore, type GameState, type Storage } from './store';
+import { GameStore, normalizeState, type GameState, type Storage } from './store';
 
 const MINUTE = 60 * 1000;
 const DAY = 24 * 60 * MINUTE;
@@ -78,13 +78,31 @@ describe('GameStore', () => {
     expect(store.get().tasks[0].completedAt).toBeDefined();
   });
 
-  it('늦게 끝내도 집중 중이던 시간까지 계산해서 꾸벅이가 될 수 있어요', () => {
+  it('심술(50% 지남)일 때 집중해서 풀고 늦게 끝내면 꾸벅이예요 (집중 중에 끝내도 그 집중을 쳐줘요)', () => {
     const { store, advance, start } = setup();
-    const t = store.addTask('보고서', start, start + DAY);
+    const t = store.addTask('보고서', start, start + 10 * DAY);
+    advance(6 * DAY); // 60%: 심술
+    store.startFocus(t.id);
+    advance(30 * MINUTE);
+    advance(3 * DAY); // 90%에 끝내요 (집중을 켠 채로)
+    expect(store.completeTask(t.id).resident.kind).toBe('sleepy');
+  });
+
+  it('처음 집중한 시각이 남아서, 굳은 심술인지 판단할 수 있어요', () => {
+    const { store, advance, start } = setup();
+    const t = store.addTask('보고서', start, start + 10 * DAY);
     advance(DAY);
     store.startFocus(t.id);
     advance(30 * MINUTE);
-    expect(store.completeTask(t.id).resident.kind).toBe('sleepy');
+    store.stopFocus();
+    expect(store.get().tasks[0].firstFocusAt).toBe(start + DAY);
+  });
+
+  it('예전 데이터는 집중 기록에서 처음 집중한 시각을 채워요', () => {
+    const t = { id: 'a', title: '예전 일', startAt: 0, dueAt: 10 * DAY, focusMinutes: 40, dueExtensions: 0 };
+    const sessions = [{ taskId: 'a', startedAt: 3 * DAY, endedAt: 3 * DAY + 40 * MINUTE }];
+    expect(normalizeState({ tasks: [t], sessions }).tasks[0].firstFocusAt).toBe(3 * DAY);
+    expect(normalizeState({ tasks: [t], sessions: [] }).tasks[0].firstFocusAt).toBe(0); // 기록이 없으면 일찍 손댄 것으로
   });
 
   it('이미 끝낸 할 일은 다시 끝낼 수 없어요', () => {

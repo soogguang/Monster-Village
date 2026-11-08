@@ -265,7 +265,7 @@ export class RoomView {
     this.patch({ members, slots });
     this.leaveChannel = await backend.enter(room.id, {
       onTasks: (tasks) => this.patch({ tasks }),
-      onPresence: (online) => this.patch({ online }),
+      onPresence: (online) => { this.patch({ online }); this.refreshMembersSoon(room.id); },
       onBell: (from, to) => { if (to === backend.me.id) this.onBellForMe(from); },
     });
   }
@@ -303,6 +303,20 @@ export class RoomView {
     this.patch({ active: null, members: [], slots: [], tasks: [], online: [], inVillage: false });
     await this.refreshRooms();
     if (this.state.rooms[0]) await this.open(this.state.rooms[0]);
+  }
+
+  /**
+   * 친구가 집중을 켜고 끄면(접속 상태가 바뀌면) 잠시 뒤 멤버 데이터를 다시 불러와요.
+   * 오늘 집중 시간·마당 주민이 최신이 되도록. 친구 데이터가 저장될 시간을 조금 기다려요.
+   */
+  private membersTimer: number | undefined;
+  private refreshMembersSoon(roomId: string): void {
+    window.clearTimeout(this.membersTimer);
+    this.membersTimer = window.setTimeout(async () => {
+      const backend = this.state.backend;
+      if (!backend || this.state.active?.id !== roomId) return;
+      try { this.patch({ members: await backend.loadMembers(roomId) }); } catch { /* 다음 변화 때 다시 시도해요 */ }
+    }, 3000);
   }
 
   /** 내 이름을 바꾼 뒤: 멤버 목록과 접속 상태를 새로 고쳐서 방 친구 화면에도 새 이름이 보이게 해요 */
