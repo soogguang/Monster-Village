@@ -242,6 +242,11 @@ button, input, select { font: inherit; color: inherit; }
 }
 .avatar-card[aria-pressed='true'] { border-color: var(--leaf); background: #edf3d8; }
 .avatar-card:focus-visible { outline: 3px solid var(--wood-dark); outline-offset: 2px; }
+.avatar-card:disabled { cursor: wait; }
+.avatar-setup-window { width: min(760px, calc(100vw - 48px)); }
+.avatar-setup-window p { line-height: 1.6; }
+.avatar-setup-actions { display: flex; justify-content: center; margin-top: 16px; }
+.avatar-setup-actions button:disabled { opacity: .65; cursor: default; }
 .avatar-description { color: var(--ink-soft); font-size: 11px; line-height: 1.5; text-align: center; }
 .avatar-preview {
   display: block; width: 128px; height: 144px; background-size: 640px 432px; image-rendering: pixelated;

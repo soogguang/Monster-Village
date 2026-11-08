@@ -1,11 +1,11 @@
-"""Export 64×72 bases and real arm/leg walk frames from the approved model sheet.
+"""Export 64×72 bases and individually drawn walk poses.
 
 Run from any directory: python design/avatars/build_avatars.py (requires Pillow).
 The existing forest front/back drawings remain the idle bases for that avatar.
 """
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageEnhance
+from PIL import Image, ImageDraw
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
@@ -17,18 +17,6 @@ VIEWS = ('down', 'up', 'side')
 
 def blank():
     return Image.new('RGBA', SIZE)
-
-
-def region(image, box):
-    result = blank()
-    result.paste(image.crop(box), box[:2])
-    return result
-
-
-def translated(image, x=0, y=0):
-    result = blank()
-    result.paste(image, (x, y))
-    return result
 
 
 def clean(image):
@@ -103,42 +91,56 @@ def touch_up_face(image, avatar_id, direction):
     return image
 
 
-def darken(image):
-    result = ImageEnhance.Brightness(image.convert('RGB')).enhance(.8).convert('RGBA')
-    result.putalpha(image.getchannel('A'))
-    return result
+def remove_strays(image):
+    """Keep the connected character; generated sheets can have detached edge noise."""
+    image = clean(image)
+    alpha = image.getchannel('A')
+    points = {(x, y) for y in range(image.height) for x in range(image.width) if alpha.getpixel((x, y))}
+    largest = set()
+    while points:
+        seed = points.pop()
+        component = {seed}
+        stack = [seed]
+        while stack:
+            x, y = stack.pop()
+            for dy in (-1, 0, 1):
+                for dx in (-1, 0, 1):
+                    candidate = (x + dx, y + dy)
+                    if candidate in points:
+                        points.remove(candidate)
+                        component.add(candidate)
+                        stack.append(candidate)
+        if len(component) > len(largest):
+            largest = component
+    mask = Image.new('L', image.size)
+    for point in largest:
+        mask.putpixel(point, 255)
+    image.putalpha(mask)
+    return clean(image)
 
 
-def walk_frame(base, direction, step):
-    # Crop at the hip: the feet actually move independently of the torso.
-    torso = region(base, (0, 0, 64, 58))
+def walk_frame(source, base, row, step):
+    # Each frame comes from its OWN drawn pose: no limb translation or rotation.
+    tile = source.crop((step * source.width // 4, row * source.height // 3,
+                        (step + 1) * source.width // 4, (row + 1) * source.height // 3))
+    tile = remove_strays(tile)
+    tile = tile.crop(tile.getbbox())
+    width = round(tile.width * 62 / tile.height)
+    tile = tile.resize((width, 62), Image.Resampling.NEAREST)
+    # Register using the head, so a forward boot does not shift the whole sprite.
+    head = tile.getchannel('A').crop((0, 0, width, 34)).getbbox()
+    x = round(32 - (head[0] + head[2]) / 2)
     frame = blank()
-    if direction == 'side':
-        leg = region(base, (0, 58, 64, 71))
-        far = darken(leg)
-        near_x, near_y, far_x, far_y = [(3, 0, -3, -2), (1, -2, -1, 0),
-                                      (-3, 0, 3, -2), (-1, -1, 1, 0)][step]
-        frame.alpha_composite(translated(far, far_x, far_y))
-        frame.alpha_composite(translated(leg, near_x, near_y))
-        frame.alpha_composite(translated(torso, 0, -1 if step % 2 else 0))
-    else:
-        left_leg = region(base, (0, 58, 32, 71))
-        right_leg = region(base, (32, 58, 64, 71))
-        left_y, right_y = [(0, -3), (0, -1), (-3, 0), (-1, 0)][step]
-        spread = 1 if step % 2 == 0 else 0
-        frame.alpha_composite(translated(left_leg, -spread, left_y))
-        frame.alpha_composite(translated(right_leg, spread, right_y))
-        left_arm = region(torso, (0, 44, 24, 58))
-        right_arm = region(torso, (40, 44, 64, 58))
-        torso.paste((0, 0, 0, 0), (0, 44, 24, 58))
-        torso.paste((0, 0, 0, 0), (40, 44, 64, 58))
-        bob = -1 if step % 2 else 0
-        frame.alpha_composite(translated(left_arm, -spread, right_y // 2 + bob))
-        frame.alpha_composite(translated(right_arm, spread, left_y // 2 + bob))
-        frame.alpha_composite(translated(torso, 0, bob))
-    # y=71 stays transparent; every pose shares a fixed ground anchor at y=70.
-    frame.paste((0, 0, 0, 0), (0, 71, 64, 72))
-    return clean(frame)
+    frame.paste(tile, (x, 9))
+    rgb_base = Image.new('RGB', SIZE, (241, 0, 238))
+    rgb_base.paste(base, mask=base.getchannel('A'))
+    palette = rgb_base.quantize(colors=256, method=Image.Quantize.MEDIANCUT)
+    color = frame.convert('RGB').quantize(palette=palette, dither=Image.Dither.NONE).convert('RGBA')
+    color.putalpha(frame.getchannel('A'))
+    # Keep the already cleaned facial pixels stable across all four drawings.
+    color.paste(base.crop((0, 0, 64, 43)), (0, 0))
+    color.paste((0, 0, 0, 0), (0, 71, 64, 72))
+    return clean(color)
 
 
 def main():
@@ -155,12 +157,14 @@ def main():
             bases = [touch_up_face(base, avatar_id, view) for base, view in zip(bases, VIEWS)]
         sheet = Image.new('RGBA', (320, 216))
         walking = []
+        drawn = Image.open(HERE / f'walk-{avatar_id}-source.png').convert('RGBA')
         for row, (direction, base) in enumerate(zip(VIEWS, bases)):
             base.save(OUT / f'{avatar_id}-{direction}.png')
             sheet.paste(base, (0, row * 72))
-            poses = [walk_frame(base, direction, step) for step in range(4)]
+            poses = [walk_frame(drawn, base, row, step) for step in range(4)]
             assert len({pose.tobytes() for pose in poses}) == 4, (avatar_id, direction)
             for step, pose in enumerate(poses):
+                pose.save(OUT / f'{avatar_id}-{direction}-{step + 1:02}.png', optimize=True)
                 sheet.paste(pose, ((step + 1) * 64, row * 72))
             walking.append(poses)
         sheet.save(OUT / f'{avatar_id}-walk.png', optimize=True)

@@ -10,6 +10,7 @@ import { SupabaseRooms, roomView } from './net/rooms';
 import { getSupabase } from './net/supabase';
 import { mountHud } from './ui/hud';
 import { askNickname, chosenGuest, mountAccountBadge, saveNickname, showLogin } from './ui/login';
+import { ensureFirstAvatar } from './ui/avatarSetup';
 import './ui/pixel.css';
 
 const CHARACTER_DIR = 'assets/characters/';
@@ -61,10 +62,13 @@ async function connectAccount(): Promise<{ client: SupabaseClient; me: { id: str
     me.nickname = name;
     await saveNickname(client, user.id, name).catch((err) => console.warn('[이름] 저장하지 못했어요. 다음 접속 때 다시 물어볼게요.', err));
   }
+  const avatarId = await ensureFirstAvatar(client, user.user_metadata, CHARACTER_DIR);
   mountAccountBadge(client, me, (name) => void roomView.renameMe(name));
   await startCloudSave(store, client, user.id).catch((err) =>
     console.warn('[클라우드 저장] 불러오지 못해서 이 브라우저의 데이터로 계속해요.', err),
   );
+  // 예전 클라우드 저장보다 계정에서 확정한 모습을 우선해요.
+  store.chooseAvatar(avatarId);
   return { client, me };
 }
 
