@@ -759,7 +759,7 @@ const pct = (n: number) => `${Math.round(n * 100)}%`;
 const HELP_SECTIONS: { id: string; title: string; html: string }[] = [
   {
     id: 'about', title: '🏘️ 어떤 게임이에요?',
-    html: `<p>할 일을 적으면 마당에 <b>말랑 반죽</b>이 생겨요. 미루면 반죽이 심술이 나고, 마감이 지나면 <b>몬스터</b>가 돼요.
+    html: `<p>할 일을 적으면 마당에 <b>말랑 반죽</b>이 생겨요. 미루면 반죽이 심술이 나고, 마감이 지나면 <b>몬스터 반죽</b>이 돼요.
       할 일을 끝내면 반죽이 <b>주민</b>으로 태어나서 내 마당에 살아요. 일찍 끝낼수록 귀하고 희귀한 주민을 만날 수 있어요.</p>
       <p>친구와 <b>방</b>을 만들면 서로의 집이 모인 마을에서 같이 집중하고 응원할 수 있어요.</p>`,
   },
@@ -781,11 +781,11 @@ const HELP_SECTIONS: { id: string; title: string; html: string }[] = [
         <span class="arrow" aria-hidden="true">→</span>
         <figure><img src="{{chars}}dough-grumpy.png" alt="심술 반죽" draggable="false" /><figcaption><b>😤 심술 반죽</b>시작하고 여유 시간(기간의 ${pct(RULES.grumpyGraceRatio)})이 지나도 한 번도 집중하지 않았어요. 1분 이상 집중하면 다시 말랑해져요.</figcaption></figure>
         <span class="arrow" aria-hidden="true">→</span>
-        <figure><img src="{{chars}}dough-monster.png" alt="몬스터" draggable="false" /><figcaption><b>👾 몬스터</b>끝내지 못한 채 마감이 지났어요. 말랑이든 심술이든 마감을 넘기면 몬스터가 돼요.</figcaption></figure>
+        <figure><img src="{{chars}}dough-monster.png" alt="몬스터 반죽" draggable="false" /><figcaption><b>👾 몬스터 반죽</b>끝내지 못한 채 마감이 지났어요. 말랑이든 심술이든 마감을 넘기면 몬스터 반죽이 돼요.</figcaption></figure>
       </div>
       <ul>
       <li>집중하는 동안에는 어느 단계든 졸려서 얌전해져요 (z z).</li>
-      <li>할 일을 끝내면 반죽이 주민으로 태어나요. 몬스터가 된 뒤에 끝내도 태어나요. 언제 끝냈는지에 따라 주민이 달라져요. (아래 "주민 만나기")</li>
+      <li>할 일을 끝내면 반죽이 주민으로 태어나요. 몬스터 반죽이 된 뒤에 끝내도 태어나요. 언제 끝냈는지에 따라 주민이 달라져요. (아래 "주민 만나기")</li>
       <li>마감을 뒤로 미루면 미룬 횟수가 남고, 방 친구들에게도 보여요.</li>
     </ul>`,
   },

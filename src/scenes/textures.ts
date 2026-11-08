@@ -59,7 +59,7 @@ export function makePlaceholderTextures(scene: Phaser.Scene): void {
   px(0, 0, OUTLINE, 16, 16); px(5, 0, 0xa0703f, 6, 16); px(0, 6, 0xb98249, 16, 3);
   save('fence-corner', T, T);
 
-  // 반죽 (말랑, 심술, 몬스터)
+  // 반죽 (말랑, 심술, 몬스터 반죽)
   const blob = (key: string, fill: number, shade: number, face: 'happy' | 'grumpy', extra?: () => void) => {
     px(3, 0, OUTLINE, 10, 1); px(1, 1, OUTLINE, 2, 2); px(13, 1, OUTLINE, 2, 2);
     px(0, 3, OUTLINE, 1, 8); px(15, 3, OUTLINE, 1, 8); px(1, 11, OUTLINE, 14, 1); px(2, 12, OUTLINE, 12, 1);

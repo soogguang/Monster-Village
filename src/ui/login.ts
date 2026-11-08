@@ -22,7 +22,7 @@ export function showLogin(client: SupabaseClient): Promise<void> {
       <section class="window px-box login-box">
         <div class="window-title">🏘️ 미룬 일 몬스터 동네</div>
         <div class="window-body">
-          <p>할 일을 미루면 몬스터가, 끝내면 귀여운 주민이 태어나는 마을이에요.</p>
+          <p>할 일을 미루면 반죽이 몬스터 반죽이 되고, 끝내면 귀여운 주민이 태어나는 마을이에요.</p>
           <p class="muted">친구와 방을 만들어 같이 집중하려면 로그인이 필요해요.</p>
           <div class="login-actions">
             <button class="px-btn kakao" data-act="kakao">카카오로 시작하기</button>

@@ -30,7 +30,7 @@ export function isTaskColor(value: unknown): value is TaskColor {
   return typeof value === 'string' && (TASK_COLORS as readonly string[]).includes(value);
 }
 
-/** 반죽 단계: 말랑 반죽 → 심술 반죽 → 찐 몬스터 */
+/** 반죽 단계: 말랑 반죽 → 심술 반죽 → 몬스터 반죽 */
 export type DoughStage = 'soft' | 'grumpy' | 'monster';
 
 export type ResidentKind = 'sprout' | 'sleepy' | 'trouble';
