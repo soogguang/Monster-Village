@@ -5,7 +5,7 @@ The existing forest front/back drawings remain the idle bases for that avatar.
 """
 from pathlib import Path
 
-from PIL import Image, ImageEnhance
+from PIL import Image, ImageDraw, ImageEnhance
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
@@ -68,6 +68,41 @@ def unify_palette(bases):
     return result
 
 
+def touch_up_face(image, avatar_id, direction):
+    """Remove subpixel face noise after sampling the generated model sheet."""
+    image = image.copy()
+    outline = (67, 43, 28, 255)
+    # Match the existing avatar's warm outline instead of near-black color noise.
+    for y in range(43):
+        for x in range(64):
+            r, g, b, a = image.getpixel((x, y))
+            if a and max(r, g, b) < 85:
+                image.putpixel((x, y), outline)
+    if direction != 'down':
+        return image
+    draw = ImageDraw.Draw(image)
+    skin = image.getpixel((32, 33))
+    if avatar_id == 'mint':
+        draw.rectangle((24, 29, 28, 34), fill=skin)
+        draw.rectangle((35, 29, 39, 34), fill=skin)
+        draw.rectangle((28, 35, 36, 38), fill=skin)
+        eye_y, mouth_y = 30, 36
+        blush = (222, 150, 122, 255)
+    else:
+        draw.rectangle((24, 28, 28, 32), fill=skin)
+        draw.rectangle((35, 28, 39, 32), fill=skin)
+        draw.rectangle((28, 33, 37, 37), fill=skin)
+        eye_y, mouth_y = 29, 34
+        blush = (243, 169, 151, 255)
+    draw.rectangle((26, eye_y, 27, eye_y + 3), fill=outline)
+    draw.rectangle((37, eye_y, 38, eye_y + 3), fill=outline)
+    draw.rectangle((23, eye_y + 4, 25, eye_y + 5), fill=blush)
+    draw.rectangle((39, eye_y + 4, 41, eye_y + 5), fill=blush)
+    for x, y in [(30, mouth_y), (31, mouth_y + 1), (32, mouth_y + 1), (33, mouth_y + 1), (34, mouth_y)]:
+        draw.point((x, y), fill=outline)
+    return image
+
+
 def darken(image):
     result = ImageEnhance.Brightness(image.convert('RGB')).enhance(.8).convert('RGBA')
     result.putalpha(image.getchannel('A'))
@@ -117,6 +152,7 @@ def main():
             bases[1] = Image.open(ROOT / 'public/assets/characters/player-back.png').convert('RGBA')
         else:
             bases = unify_palette(bases)
+            bases = [touch_up_face(base, avatar_id, view) for base, view in zip(bases, VIEWS)]
         sheet = Image.new('RGBA', (320, 216))
         walking = []
         for row, (direction, base) in enumerate(zip(VIEWS, bases)):
