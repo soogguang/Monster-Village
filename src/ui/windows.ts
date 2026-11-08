@@ -9,7 +9,7 @@ import { doughStage, progressRatio, type CalendarStyle, type Task } from '../rul
 import type { GameState, GameStore, Resident } from '../store';
 import {
   DAY, HABIT_TEXT, RESIDENT_TEXT, STAGE_TEXT, WEEKDAYS, heartsText,
-  escapeHtml, formatDate, fromLocalInput, startOfDay, toLocalInput,
+  defaultStartForDay, escapeHtml, formatDate, fromLocalInput, startOfDay, toLocalInput, toTimeInput, todayAt,
 } from './format';
 
 export interface WindowContext {
@@ -86,8 +86,10 @@ export const tasksWindow: GameWindow = {
       if (!picking) {
         tools.innerHTML = `<div class="row" style="display:flex;gap:6px">
           <button class="px-btn small" data-act="pick">📥 오늘 할 수 있는 일 가져오기</button>
-          <form class="today-only" style="display:flex;gap:6px;flex:1">
+          <form class="today-only" style="display:flex;gap:6px;flex:1;align-items:center">
             <input class="px-input" name="title" placeholder="오늘만 할 일 (예: 우체국 가기)" maxlength="40" style="flex:1" />
+            <label class="muted" title="시작 시각 (기본은 지금, 필요하면 바꿔요)">시작</label>
+            <input class="px-input" name="start" type="time" value="${toTimeInput(Date.now())}" title="시작 시각 (기본은 지금, 필요하면 바꿔요)" style="width:auto" />
             <button class="px-btn small green">+ 추가</button>
           </form></div>`;
         return;
@@ -113,7 +115,11 @@ export const tasksWindow: GameWindow = {
       if (el.dataset.tab) { tab = el.dataset.tab as typeof tab; editingId = null; picking = false; return render(ctx.store.get()); }
       const id = el.dataset.id!;
       switch (el.dataset.act) {
-        case 'new': newForm.hidden = !newForm.hidden; if (!newForm.hidden) newForm.querySelector<HTMLInputElement>('[name=title]')!.focus(); break;
+        case 'new':
+          newForm.hidden = !newForm.hidden;
+          // 열 때마다 시작은 지금, 마감은 하루 뒤로 새로 채워요. (창을 오래 열어 뒀어도 지금 시각이 들어가게)
+          if (!newForm.hidden) { resetTaskForm(newForm, Date.now(), Date.now() + DAY); newForm.querySelector<HTMLInputElement>('[name=title]')!.focus(); }
+          break;
         case 'cancel-new': newForm.hidden = true; break;
         case 'pick': picking = true; render(ctx.store.get()); break;
         case 'cancel-pick': picking = false; render(ctx.store.get()); break;
@@ -123,6 +129,12 @@ export const tasksWindow: GameWindow = {
         case 'edit': editingId = id; render(ctx.store.get()); break;
         case 'cancel-edit': editingId = null; render(ctx.store.get()); break;
       }
+    });
+
+    // 오늘만 할 일의 시작 칸을 직접 바꿨는지 기억해요.
+    body.addEventListener('input', (e) => {
+      const el = e.target as HTMLInputElement;
+      if (el.name === 'start' && el.closest('form.today-only')) el.dataset.touched = '1';
     });
 
     body.addEventListener('submit', (e) => {
@@ -136,8 +148,12 @@ export const tasksWindow: GameWindow = {
           picking = false;
           render(ctx.store.get());
         } else if (form.classList.contains('today-only')) {
-          const title = String(new FormData(form).get('title') ?? '');
-          ctx.store.addTodayOnlyTask(title);
+          const data = new FormData(form);
+          const title = String(data.get('title') ?? '');
+          // 시작 칸을 직접 바꾸지 않았으면 "누른 순간"을 시작으로 써요. (창을 오래 열어 둬도 지금 시각이 들어가게)
+          const startInput = form.elements.namedItem('start') as HTMLInputElement;
+          const startAt = startInput.dataset.touched ? todayAt(String(data.get('start')), Date.now()) : undefined;
+          ctx.store.addTodayOnlyTask(title, startAt);
           ctx.toast(`🫧 "${title.trim()}" 반죽이 마당에 생겼어요! (오늘만 할 일)`);
         } else if (form.classList.contains('new')) {
           const values = readTaskForm(form);
@@ -324,7 +340,7 @@ export const calendarWindow: GameWindow = {
       selected = to;
       const now = Date.now();
       draft = from === to
-        ? { startAt: Math.min(now, from), dueAt: to + DAY - 60 * 1000, style: 'due' }
+        ? { startAt: defaultStartForDay(from, now), dueAt: to + DAY - 60 * 1000, style: 'due' }
         : { startAt: from + 9 * 60 * 60 * 1000, dueAt: to + DAY - 60 * 1000, style: 'range' };
       render(ctx.store.get());
       renderDraft();

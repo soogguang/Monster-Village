@@ -114,6 +114,18 @@ export class VillageScene extends Phaser.Scene {
     // 입력창에 글자를 칠 때 W·A·S·D가 막히지 않도록 키를 가로채지 않아요.
     const kb = this.input.keyboard!;
     const key = (k: string) => kb.addKey(k, false);
+    // 게임 화면에서는 우클릭 메뉴를 띄우지 않아요. 메뉴가 뜨면 키에서 손을 뗀 신호가 사라져서 캐릭터가 계속 걸어가요.
+    this.input.mouse?.disableContextMenu();
+    // 그래도 키를 뗀 신호를 놓칠 수 있는 순간(다른 창·탭으로 이동, 메뉴)에는 눌린 키를 모두 놓은 것으로 돌려요.
+    const releaseKeys = () => kb.resetKeys();
+    window.addEventListener('blur', releaseKeys);
+    window.addEventListener('contextmenu', releaseKeys);
+    document.addEventListener('visibilitychange', releaseKeys);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      window.removeEventListener('blur', releaseKeys);
+      window.removeEventListener('contextmenu', releaseKeys);
+      document.removeEventListener('visibilitychange', releaseKeys);
+    });
     this.keys = { up: key('UP'), down: key('DOWN'), left: key('LEFT'), right: key('RIGHT'), w: key('W'), a: key('A'), s: key('S'), d: key('D') };
     this.interactionKey = key('E');
 

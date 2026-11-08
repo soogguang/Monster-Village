@@ -166,6 +166,14 @@ describe('GameStore', () => {
     expect(store.todayPlan().map((x) => x.id)).toEqual([t.id]);
   });
 
+  it('오늘만 할 일의 시작은 기본으로 지금이고, 원하면 바꿀 수 있어요', () => {
+    const { store, start, advance } = setup();
+    advance(3 * 60 * 60 * 1000);
+    const now = start + 3 * 60 * 60 * 1000;
+    expect(store.addTodayOnlyTask('우체국 가기').startAt).toBe(now);
+    expect(store.addTodayOnlyTask('은행 가기', now + 30 * 60 * 1000).startAt).toBe(now + 30 * 60 * 1000);
+  });
+
   it('하루가 지나면 오늘 할 일은 새로 시작해요', () => {
     const { store, start, advance } = setup();
     const t = store.addTask('a', start, start + 5 * DAY);
