@@ -171,9 +171,10 @@ export class GameStore {
   }
 
   /** 오늘만 할 일: 지금부터 오늘 자정 전까지 하는 할 일을 만들고 바로 오늘 할 일에 넣어요. */
-  addTodayOnlyTask(title: string): Task {
+  /** 오늘만 할 일: 시작은 기본으로 지금(바꿀 수 있어요), 마감은 오늘 23:59 */
+  addTodayOnlyTask(title: string, startAt?: number): Task {
     const now = this.now();
-    const task = this.addTask(title, now, startOfLocalDay(now) + 24 * 60 * MINUTE - MINUTE, 'due');
+    const task = this.addTask(title, startAt ?? now, startOfLocalDay(now) + 24 * 60 * MINUTE - MINUTE, 'due');
     this.addToToday([task.id]);
     return task;
   }

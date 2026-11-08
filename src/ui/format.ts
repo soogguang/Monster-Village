@@ -44,6 +44,27 @@ export function formatElapsed(ms: number): string {
 }
 
 /** <input type="datetime-local">에 넣을 값 */
+/**
+ * 달력에서 날짜 하나를 눌러 할 일을 만들 때 기본 시작 시각.
+ * 오늘이나 앞으로의 날이면 "지금", 이미 지난 날이면 그날 0시예요.
+ */
+export function defaultStartForDay(dayStart: number, now: number): number {
+  return dayStart + DAY > now ? now : dayStart;
+}
+
+/** 오늘 날짜에 "시:분"을 붙인 시각 (input type=time 값) */
+export function todayAt(time: string, now: number): number {
+  const [h, m] = time.split(':').map(Number);
+  const d = new Date(now);
+  d.setHours(h, m, 0, 0);
+  return d.getTime();
+}
+
+export function toTimeInput(ms: number): string {
+  const d = new Date(ms);
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 export function toLocalInput(ms: number): string {
   const d = new Date(ms - new Date(ms).getTimezoneOffset() * 60 * 1000);
   return d.toISOString().slice(0, 16);
