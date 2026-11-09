@@ -1,14 +1,13 @@
-# 고양이·토끼·강아지 눈 스타일 통일
+# 펠트토끼와 주민 눈 스타일
 
-사용자가 첨부한 별가시 고슴도치를 기준으로 세 주민 모두 **세로로 살짝 긴 5×6픽셀 타원형 눈**과 **왼쪽 위 흰 점 1개**를 사용합니다. 눈의 실루엣·갈색·반짝임 위치가 정확히 같은 공통 템플릿입니다.
-정면 3장과 눈을 뜬 행동 그림 3장(고양이 민들레, 토끼 점프, 강아지 땅파기)에 적용했습니다. 각 자세의 기존 얼굴에 맞춰 눈을 배치하고, 눈 영역 밖의 귀·몸·무늬·표정은 유지합니다.
+펠트토끼는 연분홍 얼굴과 늘어진 귀, 회민트색 몸통 패치를 바탕으로 만들었습니다. 귀의 연보라·버터 노랑·딸기빛·크림색 천과 몸통 패치에 사각 누빔과 밝은 박음질을 넣었습니다. 정면과 점프에서는 작은 갈색 눈과 `ω` 모양 입을 쓰고, 착지와 수면에서는 눈을 감습니다.
 
-[비교 미리보기](eye-preview.png)는 실제 게임 PNG를 4배 정수 확대했습니다. 왼쪽부터 고양이·토끼·강아지이며, 각 칸에 실제 크기·눈 확대·행동 그림도 있습니다.
+[정면](../../public/assets/characters/sprout-rabbit.png) · [점프](../../public/assets/characters/sprout-rabbit-jump.png) · [착지](../../public/assets/characters/sprout-rabbit-land.png) · [잠자기](../../public/assets/characters/sprout-rabbit-sleep.png)
+
+고양이와 강아지의 정면 및 눈을 뜬 행동 그림은 별가시 고슴도치를 참고한 **5×6픽셀 타원형 눈과 왼쪽 위 흰 점 1개**를 사용합니다. [이전 비교 미리보기](eye-preview.png)에는 누빔 작업 전 토끼도 들어 있습니다.
 
 ```sh
 python design/rabbit/adjust_eyes.py
 ```
 
-처음에는 토끼만 정리하던 스크립트여서 기존 명령 경로를 유지합니다. 현재는 세 주민을 모두 정리합니다.
-Pillow로 64×72 원본의 눈 영역만 수정합니다. 다시 실행해도 결과가 같으며, 게임용 PNG는 `public/assets/characters/`에 있습니다.
-비교용 HTML은 `/workspace/exports/resident-eye-style/preview.html`에 만들고, 브라우저에서 `main`을 1배로 캡처해 `eye-preview.png`를 갱신합니다.
+기존 명령 경로를 유지하며, Pillow로 고양이와 강아지의 64×72 게임 PNG에서 눈 영역을 정리합니다. 실행하면 두 주민의 비교용 HTML을 `/workspace/exports/resident-eye-style/preview.html`에 저장합니다.
