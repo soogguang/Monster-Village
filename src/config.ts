@@ -14,6 +14,16 @@ export function pickPixelScale(windowHeight: number): number {
   return windowHeight >= 1000 ? 2 : 1;
 }
 
+/**
+ * 주민을 화면에서 그림 파일보다 작게(또는 크게) 그리는 배율. 그림 파일은 그대로 두고 화면에서만 바꿔요.
+ * 고양이·강아지가 플레이어(약 62픽셀)보다 커 보여서 줄였어요 (2026-11-09 사용자 요청, 64 → 약 48픽셀).
+ * 정수 배율이 아니라서 픽셀 줄이 조금 고르지 않을 수 있어요. 나중에 그림 자체를 작게 다시 그리면 1로 되돌려요.
+ */
+export const RESIDENT_DISPLAY_SCALE: Record<string, number> = {
+  'sprout-cat': 0.75,
+  'sprout-puppy': 0.75,
+};
+
 export const RULES = {
   /** 진행 비율이 이 값 이하면 "아주 일찍" 끝낸 것으로 봐요 (희귀 확률 높음) */
   veryEarlyRatio: 0.3,

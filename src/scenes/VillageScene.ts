@@ -6,7 +6,7 @@
 
 import Phaser from 'phaser';
 import { AVATARS, AVATAR_FRAME, AVATAR_ROWS, avatarRow, avatarTexture, avatarWalk, facingForMovement, type Facing } from '../avatars';
-import { FRIENDSHIP, TILE_SIZE, pickPixelScale } from '../config';
+import { FRIENDSHIP, RESIDENT_DISPLAY_SCALE, TILE_SIZE, pickPixelScale } from '../config';
 import { roomView, type RoomViewState } from '../net/rooms';
 import { doughStage, isStuckGrumpy, type DoughStage, type Task } from '../rules/task';
 import type { GameState, GameStore, Resident } from '../store';
@@ -474,10 +474,12 @@ export class VillageScene extends Phaser.Scene {
     const home = this.yardSpot(yard, rng.realInRange(0.31, 0.74), rng.realInRange(0.82, 0.94));
     const placeholder = r.kind === 'sprout' && r.rare ? 'resident-sprout-rare' : `resident-${r.kind}`;
     const key = r.speciesId && this.textures.exists(characterKey(r.speciesId)) ? characterKey(r.speciesId) : placeholder;
-    const sprite = this.add.image(home.x, home.y, key).setOrigin(0.5, 1).setDepth(home.y);
+    // 고양이·강아지처럼 그림이 큰 주민은 화면에서만 줄여 그려요. (발밑 기준이라 서 있는 자리는 그대로)
+    const scale = (r.speciesId && RESIDENT_DISPLAY_SCALE[r.speciesId]) || 1;
+    const sprite = this.add.image(home.x, home.y, key).setOrigin(0.5, 1).setDepth(home.y).setScale(scale);
     if (bornNow && this.time.now > 2000) {
       sprite.setScale(0);
-      this.tweens.add({ targets: sprite, scale: 1, duration: 500, ease: 'Back.Out' });
+      this.tweens.add({ targets: sprite, scale, duration: 500, ease: 'Back.Out' });
     }
     const ground = { x: Math.round(home.x), y: Math.round(home.y) };
     sprite.setPosition(ground.x, ground.y).setDepth(ground.y);
