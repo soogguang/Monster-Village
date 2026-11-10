@@ -2,7 +2,9 @@ import Phaser from 'phaser';
 import { parseCatalog, type CatalogEntry } from './rules/catalog';
 import { VillageScene, type WorldAsset } from './scenes/VillageScene';
 import { GameStore, LocalStorage } from './store';
+import galmuri9 from 'galmuri/dist/Galmuri9.woff2?url';
 import galmuri11 from 'galmuri/dist/Galmuri11.woff2?url';
+import galmuri11Bold from 'galmuri/dist/Galmuri11-Bold.woff2?url';
 import galmuri14 from 'galmuri/dist/Galmuri14.woff2?url';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { startCloudSave } from './net/cloudSave';
@@ -74,7 +76,13 @@ async function connectAccount(): Promise<{ client: SupabaseClient; me: { id: str
 
 /** 한글 도트 폰트(갈무리, OFL 라이선스)를 불러와요. 실패해도 기본 글꼴로 계속 돌아가요. */
 async function loadPixelFonts(): Promise<void> {
-  const fonts = [new FontFace('Galmuri11', `url(${galmuri11})`), new FontFace('Galmuri14', `url(${galmuri14})`)];
+  // 크기마다 맞는 글꼴이 따로 있어요(Galmuri9=10px, Galmuri11=12px, Galmuri14=15px). 굵은 글씨는 진짜 굵은 글꼴을 써요.
+  const fonts = [
+    new FontFace('Galmuri9', `url(${galmuri9})`),
+    new FontFace('Galmuri11', `url(${galmuri11})`),
+    new FontFace('Galmuri11', `url(${galmuri11Bold})`, { weight: '700' }),
+    new FontFace('Galmuri14', `url(${galmuri14})`),
+  ];
   await Promise.all(fonts.map((f) => f.load().then((loaded) => document.fonts.add(loaded)).catch(() => undefined)));
 }
 
