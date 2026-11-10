@@ -12,7 +12,11 @@ const ACTIONS: Record<string, readonly ActionFrame[]> = {
     { image: 'sprout-puppy', ms: 140 },
     { image: 'sprout-puppy-dig', ms: 500 },
   ],
-  'sprout-cat': [{ image: 'sprout-cat-dandelion', ms: 2300 }],
+  'sprout-cat': [
+    { image: 'sprout-cat-sit', ms: 1800 },
+    { image: 'sprout-cat-dandelion', ms: 2300 },
+    { image: 'sprout-cat-sit', ms: 1200 },
+  ],
   'sprout-rabbit': [
     { image: 'sprout-rabbit-land', ms: 180 },
     { image: 'sprout-rabbit-jump', ms: 300, lift: 8 },
