@@ -37,6 +37,8 @@ export const RULES = {
   grumpyGraceRatio: 0.5,
   /** 심술이 굳는 시점: 이때까지 한 번도 집중을 안 했으면 굳은 심술. 그 뒤에 집중해도 말랑으로 안 돌아가요 */
   grumpyStuckRatio: 0.75,
+  /** 새싹 주민이 태어나려면 그 할 일에 모두 합쳐 이만큼(분) 집중했어야 해요. 부족하면 주민으로 자라지 못해요 (2026-11-10) */
+  minFocusMinutesForSprout: 10,
 } as const;
 
 /** 집중 습관 기준값 (분) */

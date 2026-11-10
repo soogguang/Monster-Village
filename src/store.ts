@@ -54,7 +54,10 @@ export interface Storage {
 
 /** 할 일을 끝냈을 때의 결과: 태어나거나 다시 만난 주민과, 이번에 새로 해금된 습관 */
 export interface CompleteResult {
-  resident: Resident;
+  /** 태어난(또는 친밀도가 오른) 주민. 집중이 부족해서 주민으로 자라지 못했으면 null */
+  resident: Resident | null;
+  /** 끝낸 할 일 제목 */
+  taskTitle: string;
   species: CatalogEntry | null;
   newUnlocks: HabitId[];
   /** 처음 만났으면 true, 이미 있던 주민이면 false (친밀도 ♥가 올라가요) */
@@ -254,10 +257,15 @@ export class GameStore {
     if (!task) throw new Error('끝낼 수 있는 할 일이 아니에요.');
 
     const completedAt = this.now();
-    const tasks = this.state.tasks.map((t) => (t.id === taskId ? { ...t, completedAt } : t));
+    const result = decideResident(task, completedAt, this.rng);
+    const tasks = this.state.tasks.map((t) => (t.id === taskId ? { ...t, completedAt, ...(result ? {} : { noResident: true }) } : t));
     const { unlocks, newUnlocks } = this.checkUnlocks(tasks, this.state.sessions);
 
-    const result = decideResident(task, completedAt, this.rng);
+    // 집중이 부족해서 주민으로 자라지 못했어요. 반죽은 사라지고 할 일만 "끝낸 일"에 남아요.
+    if (!result) {
+      this.set({ ...this.state, tasks, unlocks });
+      return { resident: null, taskTitle: task.title, species: null, newUnlocks: [...focusUnlocks, ...newUnlocks], isNew: false, stageUp: null };
+    }
     const unlocked = new Set(Object.keys(unlocks) as HabitId[]);
     const species = pickResident(this.catalog, result, unlocked, this.rng);
     const born: Resident = {
@@ -280,14 +288,28 @@ export class GameStore {
       const after = friendshipStage(resident.hearts);
       const residents = this.state.residents.map((r) => (r.id === existing.id ? resident : r));
       this.set({ ...this.state, tasks, unlocks, residents });
-      return { resident, species, newUnlocks: [...focusUnlocks, ...newUnlocks], isNew: false, stageUp: after !== before ? after : null };
+      return { resident, taskTitle: task.title, species, newUnlocks: [...focusUnlocks, ...newUnlocks], isNew: false, stageUp: after !== before ? after : null };
     }
     this.set({ ...this.state, tasks, unlocks, residents: [...this.state.residents, born] });
-    return { resident: born, species, newUnlocks: [...focusUnlocks, ...newUnlocks], isNew: true, stageUp: null };
+    return { resident: born, taskTitle: task.title, species, newUnlocks: [...focusUnlocks, ...newUnlocks], isNew: true, stageUp: null };
+  }
+
+  /**
+   * 할 일을 지워요. 반죽이면 마당에서도 사라지고, 이미 끝내서 태어난 주민은 그대로 있어요.
+   * 그 할 일에 집중했던 기록은 남겨요(오늘 집중 시간·집중 습관에 그대로 들어가요).
+   * 지금 집중 중이면 먼저 집중을 끝내요. 그때 새로 해금된 습관을 돌려줘요.
+   */
+  deleteTask(taskId: string): HabitId[] {
+    if (!this.state.tasks.some((t) => t.id === taskId)) throw new Error('없는 할 일이에요.');
+    const newUnlocks = this.state.focus?.taskId === taskId ? this.stopFocus() : [];
+    const plans = Object.fromEntries(Object.entries(this.state.plans).map(([day, ids]) => [day, ids.filter((id) => id !== taskId)]));
+    this.set({ ...this.state, tasks: this.state.tasks.filter((t) => t.id !== taskId), plans });
+    return newUnlocks;
   }
 
   private checkUnlocks(tasks: Task[], sessions: FocusSession[]) {
-    const completions = tasks.flatMap((t) => (t.completedAt === undefined ? [] : [{ taskId: t.id, completedAt: t.completedAt }]));
+    // 주민이 태어나지 못한(집중 없이 바로 끝낸) 일은 "차곡차곡 해내기"에 세지 않아요. (꼼수 방지)
+    const completions = tasks.flatMap((t) => (t.completedAt === undefined || t.noResident ? [] : [{ taskId: t.id, completedAt: t.completedAt }]));
     const achieved = achievedHabits(sessions, completions);
     const unlocks = { ...this.state.unlocks };
     const newUnlocks: HabitId[] = [];

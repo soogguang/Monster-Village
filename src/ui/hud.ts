@@ -1,6 +1,7 @@
 // 게임 화면 위에 올리는 UI: 왼쪽 위 상태 상자, 아래 버튼 줄, 가운데 창, 알림
 
 import { focusTotal, localDayRange, type HabitId } from '../rules/habits';
+import { RULES } from '../config';
 import type { CompleteResult, GameStore } from '../store';
 import { HABIT_TEXT, RESIDENT_TEXT, escapeHtml, formatClock, formatDuration, formatElapsed, heartsText } from './format';
 import { roomView } from '../net/rooms';
@@ -211,7 +212,13 @@ export function mountHud(store: GameStore, characterDir: string): VillageActions
   };
 }
 
-function birthMessage({ resident: r, species, newUnlocks, isNew, stageUp }: CompleteResult): string {
+function birthMessage({ resident: r, taskTitle, species, newUnlocks, isNew, stageUp }: CompleteResult): string {
+  if (!r) {
+    // 새싹이 될 차례였는데 집중이 부족했어요.
+    let text = `🫧 "${taskTitle}" 반죽이 집중을 ${RULES.minFocusMinutesForSprout}분도 못 받아서 주민으로 자라지 못했어요. 다음엔 조금이라도 집중해 줘요!`;
+    if (newUnlocks.length) text += `\n${unlockMessage(newUnlocks)}`;
+    return text;
+  }
   const kind = r.kind === 'sprout' && r.rare ? '✨ 희귀 새싹' : RESIDENT_TEXT[r.kind];
   const name = r.nickname ?? species?.name ?? kind;
   let text = isNew

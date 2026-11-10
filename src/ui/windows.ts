@@ -132,6 +132,7 @@ export const tasksWindow: GameWindow = {
         case 'done': ctx.completeTask(id); break;
         case 'edit': editingId = id; render(ctx.store.get()); break;
         case 'cancel-edit': editingId = null; render(ctx.store.get()); break;
+        case 'delete': confirmDelete(ctx, id); break;
       }
     });
 
@@ -189,7 +190,8 @@ function taskSlot(t: Task, state: GameState, inToday: boolean): string {
   const now = Date.now();
   if (t.completedAt !== undefined) {
     return `<div class="slot"><div class="row"><span class="grow">✅ ${escapeHtml(t.title)}</span><span class="muted">${formatDate(t.completedAt)} 완료</span></div>
-      <div class="meta">집중 ${t.focusMinutes}분${t.dueExtensions ? ` · 마감 연장 ${t.dueExtensions}회` : ''}</div></div>`;
+      <div class="meta">집중 ${t.focusMinutes}분${t.dueExtensions ? ` · 마감 연장 ${t.dueExtensions}회` : ''}${t.noResident ? ' · 🫧 주민으로 자라지 못함' : ''}</div>
+      <div class="actions"><button class="px-btn small ghost" data-act="delete" data-id="${t.id}">지우기</button></div></div>`;
   }
   const focusing = state.focus?.taskId === t.id;
   const ratio = Math.min(progressRatio(t, now), 9.99);
@@ -206,8 +208,22 @@ function taskSlot(t: Task, state: GameState, inToday: boolean): string {
         <button class="px-btn small" data-act="done" data-id="${t.id}">완료!</button>
         <button class="px-btn small ghost" data-act="edit" data-id="${t.id}">수정</button>
         ${inToday ? `<button class="px-btn small ghost" data-act="unplan" data-id="${t.id}">오늘에서 빼기</button>` : ''}
+        <button class="px-btn small ghost" data-act="delete" data-id="${t.id}">지우기</button>
       </div>
     </div>`;
+}
+
+/** 할 일 지우기: 한 번 묻고 지워요. 반죽은 같이 사라지고, 이미 태어난 주민은 그대로예요. */
+function confirmDelete(ctx: WindowContext, taskId: string): void {
+  const t = ctx.store.get().tasks.find((x) => x.id === taskId);
+  if (!t) return;
+  const done = t.completedAt !== undefined;
+  const question = done
+    ? `"${t.title}" 기록을 지울까요?${t.noResident ? '' : '\n태어난 주민은 그대로 마당에 있어요.'}`
+    : `"${t.title}"을(를) 지울까요?\n마당의 반죽도 같이 사라져요. 집중했던 시간 기록은 남아요.`;
+  if (!window.confirm(question)) return;
+  const unlocks = ctx.store.deleteTask(taskId);
+  ctx.toast(`🗑️ "${t.title}"을(를) 지웠어요.${unlocks.length ? `\n🔓 새 습관을 달성했어요!` : ''}`);
 }
 
 function editSlot(t: Task): string {
@@ -369,7 +385,7 @@ export const calendarWindow: GameWindow = {
         : '';
       const items = tasksOnDay(state.tasks, selected);
       body.querySelector('.day-list')!.innerHTML = items.length
-        ? items.map(({ task, isDue }) => `<div class="slot"><div class="row"><span class="grow">${task.completedAt !== undefined ? '✅ ' : ''}${colorDot(task)}${escapeHtml(task.title)}</span>${isDue ? '<span class="badge warn">마감</span>' : ''}</div><div class="meta">${formatDate(task.startAt)} → ${formatDate(task.dueAt)}</div></div>`).join('')
+        ? items.map(({ task, isDue }) => `<div class="slot"><div class="row"><span class="grow">${task.completedAt !== undefined ? '✅ ' : ''}${colorDot(task)}${escapeHtml(task.title)}</span>${isDue ? '<span class="badge warn">마감</span>' : ''}</div><div class="meta">${formatDate(task.startAt)} → ${formatDate(task.dueAt)}</div><div class="actions"><button class="px-btn small ghost" data-act="delete-task" data-id="${task.id}">지우기</button></div></div>`).join('')
         : '<div class="empty">이 날 표시된 할 일이 없어요.</div>';
     };
 
@@ -421,6 +437,7 @@ export const calendarWindow: GameWindow = {
       else if (el.dataset.act === 'next') month = new Date(month.getFullYear(), month.getMonth() + 1, 1);
       else if (el.dataset.act === 'today') { month = new Date(today); month.setDate(1); selected = today; }
       else if (el.dataset.act === 'cancel-draft') { draft = null; renderDraft(); return; }
+      else if (el.dataset.act === 'delete-task') { confirmDelete(ctx, el.dataset.id!); return; }
       render(ctx.store.get());
     });
 
@@ -812,6 +829,7 @@ const HELP_SECTIONS: { id: string; title: string; html: string }[] = [
       <li>집중하는 동안에는 어느 단계든 졸려서 얌전해져요 (z z).</li>
       <li>할 일을 끝내면 반죽이 주민으로 태어나요. 몬스터 반죽이 된 뒤에 끝내도 태어나요. 언제 끝냈는지에 따라 주민이 달라져요. (아래 "주민 만나기")</li>
       <li>마감을 뒤로 미루면 미룬 횟수가 남고, 방 친구들에게도 보여요.</li>
+      <li>할 일 수첩이나 캘린더에서 <b>지우기</b>를 누르면 할 일과 반죽이 사라져요. 이미 태어난 주민은 그대로고, 집중했던 시간 기록도 남아요.</li>
     </ul>`,
   },
   {
@@ -834,6 +852,7 @@ const HELP_SECTIONS: { id: string; title: string; html: string }[] = [
         <tr><td>${pct(RULES.lateRatio)} 이후 · 굳은 심술 / 마감 후(몬스터 반죽)</td><td>😈 말썽</td></tr>
       </tbody></table>
       <ul>
+        <li><b>새싹 주민은 그 할 일에 모두 합쳐 ${RULES.minFocusMinutesForSprout}분 이상 집중했어야 태어나요.</b> 부족하면 반죽이 주민으로 자라지 못하고 사라져요. (꾸벅이·말썽은 이 조건이 없어요)</li>
         <li>같은 주민을 또 만나면 친밀도 ♥가 올라요. ♥${FRIENDSHIP.friendHearts}이면 친해져서 가끔 다가와 인사하고, ♥${FRIENDSHIP.evolveHearts}이면 진화해요.</li>
         <li>만난 주민은 도감(<kbd>B</kbd>)에 기록돼요. 내 주민(<kbd>R</kbd>)에서 별명을 짓고, 마당에 나올 주민을 고를 수 있어요.</li>
       </ul>`,

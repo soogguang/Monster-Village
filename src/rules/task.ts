@@ -12,6 +12,8 @@ export interface Task {
   focusMinutes: number;
   /** 처음으로 (1분 이상) 집중을 시작한 시각. 심술이 굳었는지 판단해요. 집중한 적 없으면 없음 */
   firstFocusAt?: number;
+  /** 끝냈지만 집중이 부족해서 주민이 태어나지 않았어요 (차곡차곡 해내기에도 세지 않아요) */
+  noResident?: boolean;
   /** 마감일을 미룬 횟수 (동네 친구들에게 보여요) */
   dueExtensions: number;
   completedAt?: number;
@@ -92,12 +94,18 @@ export function isStuckGrumpy(task: Task, now: number): boolean {
   return now >= pointAt(task, RULES.grumpyStuckRatio) && !helpedInTime(task);
 }
 
-/** 할 일을 끝낸 순간 어떤 주민이 태어나는지 정해요. rng는 0 이상 1 미만의 난수를 돌려줘요. */
+/**
+ * 할 일을 끝낸 순간 어떤 주민이 태어나는지 정해요. rng는 0 이상 1 미만의 난수를 돌려줘요.
+ * 새싹이 될 차례인데 그 할 일에 집중한 시간이 10분(RULES.minFocusMinutesForSprout) 미만이면 null: 주민으로 자라지 못해요.
+ * 꾸벅이(심술에서 풀림)와 말썽(굳은 심술·마감 후)은 이 조건 없이 태어나요.
+ */
 export function decideResident(
   task: Task,
   completedAt: number,
   rng: () => number = Math.random,
-): ResidentResult {
+): ResidentResult | null {
+  const sprout = (rare: boolean): ResidentResult | null =>
+    task.focusMinutes >= RULES.minFocusMinutesForSprout ? { kind: 'sprout', rare } : null;
   const ratio = progressRatio(task, completedAt);
 
   // 마감이 지나 몬스터 반죽이 됐으면 말썽
@@ -106,12 +114,12 @@ export function decideResident(
   // - 굳은 심술: 말썽 / 심술에서 풀림(50~75% 사이에 처음 집중): 꾸벅이 / 처음부터 말랑(50% 전에 집중): 새싹
   if (ratio >= RULES.lateRatio) {
     if (isStuckGrumpy(task, completedAt)) return { kind: 'trouble', rare: false };
-    return { kind: wasGrumpy(task) ? 'sleepy' : 'sprout', rare: false };
+    return wasGrumpy(task) ? { kind: 'sleepy', rare: false } : sprout(false);
   }
 
   const rareChance =
     ratio <= RULES.veryEarlyRatio ? RULES.rareChanceVeryEarly : RULES.rareChanceEarly;
-  return { kind: 'sprout', rare: rng() < rareChance };
+  return sprout(rng() < rareChance);
 }
 
 /** 집중 시간을 더해요. startedAt을 주면 처음 집중한 시각(firstFocusAt)도 기록해요. */

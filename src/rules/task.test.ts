@@ -87,22 +87,37 @@ describe('decideResident', () => {
 
   it('30% 이하에 끝내면 새싹이고 희귀 확률이 높아요', () => {
     const at = START + 3 * DAY;
-    expect(decideResident(baseTask(), at, always(0.3))).toEqual({ kind: 'sprout', rare: true });
-    expect(decideResident(baseTask(), at, always(0.5))).toEqual({ kind: 'sprout', rare: false });
+    expect(decideResident(focusAt(1), at, always(0.3))).toEqual({ kind: 'sprout', rare: true });
+    expect(decideResident(focusAt(1), at, always(0.5))).toEqual({ kind: 'sprout', rare: false });
   });
 
   it('30~75% 사이에 끝내면 새싹이고 희귀 확률은 낮아요', () => {
     const at = START + 5 * DAY;
-    expect(decideResident(baseTask(), at, always(0.3))).toEqual({ kind: 'sprout', rare: false });
-    expect(decideResident(baseTask(), at, always(0.01))).toEqual({ kind: 'sprout', rare: true });
+    expect(decideResident(focusAt(1), at, always(0.3))).toEqual({ kind: 'sprout', rare: false });
+    expect(decideResident(focusAt(1), at, always(0.01))).toEqual({ kind: 'sprout', rare: true });
+  });
+
+  it('새싹은 그 할 일에 10분 이상 집중했을 때만 태어나요 (부족하면 null: 주민으로 자라지 못함)', () => {
+    const at = START + 3 * DAY;
+    expect(decideResident(baseTask(), at)).toBeNull();
+    expect(decideResident(addFocus(baseTask(), 9, START + DAY), at)).toBeNull();
+    expect(decideResident(addFocus(baseTask(), 10, START + DAY), at)?.kind).toBe('sprout');
+    // 늦게 끝냈지만 처음부터 말랑(새싹 차례)이어도 같은 조건
+    expect(decideResident(addFocus(baseTask(), 5, START + DAY), START + 9 * DAY)).toBeNull();
+  });
+
+  it('꾸벅이·말썽은 10분 조건 없이 태어나요', () => {
+    expect(decideResident(addFocus(baseTask(), 2, START + 6 * DAY), START + 9 * DAY)?.kind).toBe('sleepy');
+    expect(decideResident(baseTask(), START + 9 * DAY)?.kind).toBe('trouble');
+    expect(decideResident(baseTask(), DUE + DAY)?.kind).toBe('trouble');
   });
 
   it('75% 이후에 끝내면 반죽이 지나온 길에 따라: 처음부터 말랑 → 새싹, 심술에서 풀림 → 꾸벅이, 굳은 심술 → 말썽', () => {
     const at = START + 9 * DAY;
     expect(decideResident(focusAt(2), at, always(0))).toEqual({ kind: 'sprout', rare: false }); // 희귀는 일찍 끝냈을 때만
-    expect(decideResident(focusAt(6), at).kind).toBe('sleepy');
-    expect(decideResident(baseTask(), at).kind).toBe('trouble');
-    expect(decideResident(focusAt(8), at).kind).toBe('trouble'); // 굳은 뒤에 집중
+    expect(decideResident(focusAt(6), at)?.kind).toBe('sleepy');
+    expect(decideResident(baseTask(), at)?.kind).toBe('trouble');
+    expect(decideResident(focusAt(8), at)?.kind).toBe('trouble'); // 굳은 뒤에 집중
   });
 
   it('마감 후(몬스터 반죽)에 끝내면 집중했어도 말썽이에요', () => {

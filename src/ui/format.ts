@@ -9,7 +9,7 @@ export const DAY = 24 * 60 * 60 * 1000;
 export const STAGE_TEXT: Record<DoughStage, string> = { soft: '🫧 말랑', grumpy: '😤 심술', monster: '👾 몬스터' };
 export const RESIDENT_TEXT: Record<ResidentKind, string> = { sprout: '🌱 새싹', sleepy: '😴 꾸벅이', trouble: '😈 말썽' };
 export const HABIT_TEXT: Record<HabitId, { name: string; how: string }> = {
-  'many-done': { name: '📦 차곡차곡 해내기', how: `하루에 서로 다른 할 일 ${HABITS.manyDoneCount}개 완료` },
+  'many-done': { name: '📦 차곡차곡 해내기', how: `하루에 서로 다른 할 일 ${HABITS.manyDoneCount}개 완료 (주민이 태어난 일만 세요)` },
   'rest-and-return': {
     name: '☕ 쉬고 돌아오기',
     how: `${HABITS.restAndReturnFocusMinutes}분 집중 → 짧은 휴식(앞 집중의 1/${HABITS.focusToRestRatio} 이하) → 다시 ${HABITS.restAndReturnFocusMinutes}분`,

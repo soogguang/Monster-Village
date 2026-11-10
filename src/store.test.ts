@@ -22,6 +22,15 @@ function setup(rng = 0.99) {
   return { store, storage, advance: (ms: number) => (now += ms), start: now };
 }
 
+/** 10분 집중한 할 일 (새싹 주민은 10분 이상 집중해야 태어나요) */
+function focusedTask(store: GameStore, advance: (ms: number) => number, title: string, startAt: number, dueAt: number) {
+  const t = store.addTask(title, startAt, dueAt);
+  store.startFocus(t.id);
+  advance(10 * MINUTE);
+  store.stopFocus();
+  return t;
+}
+
 describe('GameStore', () => {
   it('내 모습을 바꿔도 할 일은 유지되고, 다시 접속하면 선택한 모습으로 시작해요', () => {
     const { store, storage, start } = setup();
@@ -70,10 +79,10 @@ describe('GameStore', () => {
 
   it('일찍 끝내면 새싹 주민이 태어나요', () => {
     const { store, advance, start } = setup();
-    const t = store.addTask('보고서', start, start + 10 * DAY);
+    const t = focusedTask(store, advance, '보고서', start, start + 10 * DAY);
     advance(2 * DAY);
     const r = store.completeTask(t.id).resident;
-    expect(r.kind).toBe('sprout');
+    expect(r?.kind).toBe('sprout');
     expect(store.get().residents).toHaveLength(1);
     expect(store.get().tasks[0].completedAt).toBeDefined();
   });
@@ -85,7 +94,7 @@ describe('GameStore', () => {
     store.startFocus(t.id);
     advance(30 * MINUTE);
     advance(3 * DAY); // 90%에 끝내요 (집중을 켠 채로)
-    expect(store.completeTask(t.id).resident.kind).toBe('sleepy');
+    expect(store.completeTask(t.id).resident?.kind).toBe('sleepy');
   });
 
   it('처음 집중한 시각이 남아서, 굳은 심술인지 판단할 수 있어요', () => {
@@ -134,24 +143,58 @@ describe('GameStore', () => {
   });
 
   it('하루에 3개를 끝내면 차곡차곡 해내기가 해금되고, 그 주민이 바로 후보에 들어와요', () => {
-    const { store, start } = setup(0);
+    const { store, start, advance } = setup(0);
     const onlyUnlocked: CatalogEntry[] = [
       { id: 'busy-bee', name: '부지런', kind: 'sprout', rare: false, unlock: 'many-done', image: 'busy-bee.png' },
     ];
     store.setCatalog(onlyUnlocked);
-    const [a, b, c] = ['a', 'b', 'c'].map((x) => store.addTask(x, start, start + 10 * DAY));
+    const [a, b, c] = ['a', 'b', 'c'].map((x) => focusedTask(store, advance, x, start, start + 10 * DAY));
     expect(store.completeTask(a.id).species).toBeNull();
     store.completeTask(b.id);
     const third = store.completeTask(c.id);
     expect(third.newUnlocks).toEqual(['many-done']);
     expect(third.species?.id).toBe('busy-bee');
-    expect(third.resident.speciesId).toBe('busy-bee');
+    expect(third.resident?.speciesId).toBe('busy-bee');
+  });
+
+  it('집중 없이 바로 끝내면 주민으로 자라지 못하고, 차곡차곡 해내기에도 세지 않아요', () => {
+    const { store, start } = setup();
+    const [a, b, c] = ['a', 'b', 'c'].map((x) => store.addTask(x, start, start + 10 * DAY));
+    const first = store.completeTask(a.id);
+    expect(first.resident).toBeNull();
+    expect(first.taskTitle).toBe('a');
+    expect(store.get().residents).toEqual([]);
+    expect(store.get().tasks.find((t) => t.id === a.id)).toMatchObject({ noResident: true });
+    store.completeTask(b.id);
+    expect(store.completeTask(c.id).newUnlocks).toEqual([]); // 3개를 끝냈지만 꼼수라 해금 안 돼요
+  });
+
+  it('반죽인 할 일을 지우면 할 일·오늘 할 일에서 사라지고, 집중 기록은 남아요', () => {
+    const { store, start, advance } = setup();
+    const t = focusedTask(store, advance, '보고서', start, start + 10 * DAY);
+    store.addToToday([t.id]);
+    store.startFocus(t.id); // 집중 중에 지워도
+    advance(20 * MINUTE);
+    store.deleteTask(t.id);
+    expect(store.get().tasks).toEqual([]);
+    expect(store.get().focus).toBeNull(); // 집중은 먼저 끝내요
+    expect(store.todayPlan()).toEqual([]);
+    expect(store.get().sessions.map((x) => x.taskId)).toEqual([t.id, t.id]); // 10분 + 20분 기록은 그대로
+  });
+
+  it('끝낸 할 일을 지워도 태어난 주민은 그대로예요', () => {
+    const { store, start, advance } = setup();
+    const t = focusedTask(store, advance, '보고서', start, start + 10 * DAY);
+    store.completeTask(t.id);
+    store.deleteTask(t.id);
+    expect(store.get().tasks).toEqual([]);
+    expect(store.get().residents).toHaveLength(1);
   });
 
   it('희귀로 뽑혔지만 희귀 후보가 없어서 일반 주민이 나오면 일반으로 기록해요', () => {
-    const { store, start } = setup(0); // 난수 0 → 희귀 판정
+    const { store, start, advance } = setup(0); // 난수 0 → 희귀 판정
     store.setCatalog([{ id: 'plain', name: '보통', kind: 'sprout', rare: false, unlock: null, image: 'plain.png' }]);
-    const t = store.addTask('a', start, start + 10 * DAY);
+    const t = focusedTask(store, advance, 'a', start, start + 10 * DAY);
     const { resident } = store.completeTask(t.id);
     expect(resident).toMatchObject({ speciesId: 'plain', rare: false });
   });
@@ -180,10 +223,10 @@ describe('GameStore', () => {
   });
 
   it('주민에게 별명을 붙일 수 있어요', () => {
-    const { store, start } = setup();
-    const t = store.addTask('보고서', start, start + DAY);
+    const { store, start, advance } = setup();
+    const t = focusedTask(store, advance, '보고서', start, start + DAY);
     const { resident } = store.completeTask(t.id);
-    store.renameResident(resident.id, '  콩이 ');
+    store.renameResident(resident!.id, '  콩이 ');
     expect(store.get().residents[0].nickname).toBe('콩이');
   });
 
@@ -281,9 +324,9 @@ describe('GameStore', () => {
   });
 
   it('같은 캐릭터가 또 나오면 새 주민 대신 친밀도가 올라가고, 3·6에서 단계가 올라가요', () => {
-    const { store, start } = setup(0.99);
+    const { store, start, advance } = setup(0.99);
     store.setCatalog([{ id: 'puppy', name: '강아지', kind: 'sprout', rare: false, unlock: null, image: 'p.png' }]);
-    const results = Array.from({ length: 6 }, (_, i) => store.completeTask(store.addTask(`t${i}`, start, start + 10 * DAY).id));
+    const results = Array.from({ length: 6 }, (_, i) => store.completeTask(focusedTask(store, advance, `t${i}`, start, start + 10 * DAY).id));
     expect(store.get().residents).toHaveLength(1);
     expect(store.get().residents[0].hearts).toBe(6);
     expect(results.map((r) => r.isNew)).toEqual([true, false, false, false, false, false]);
@@ -291,10 +334,10 @@ describe('GameStore', () => {
   });
 
   it('주민을 마당에서 숨기거나 다시 나오게 할 수 있어요', () => {
-    const { store, start } = setup();
-    const { resident } = store.completeTask(store.addTask('a', start, start + DAY).id);
-    expect(resident.visible).toBe(true);
-    store.setResidentVisible(resident.id, false);
+    const { store, start, advance } = setup();
+    const { resident } = store.completeTask(focusedTask(store, advance, 'a', start, start + DAY).id);
+    expect(resident!.visible).toBe(true);
+    store.setResidentVisible(resident!.id, false);
     expect(store.get().residents[0].visible).toBe(false);
   });
 
