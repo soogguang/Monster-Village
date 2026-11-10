@@ -4,10 +4,10 @@
 
 [정면](../../public/assets/characters/sprout-rabbit.png) · [점프](../../public/assets/characters/sprout-rabbit-jump.png) · [착지](../../public/assets/characters/sprout-rabbit-land.png) · [잠자기](../../public/assets/characters/sprout-rabbit-sleep.png)
 
-고양이와 강아지의 정면 및 눈을 뜬 행동 그림은 별가시 고슴도치를 참고한 **5×6픽셀 타원형 눈과 왼쪽 위 흰 점 1개**를 사용합니다. [이전 비교 미리보기](eye-preview.png)에는 누빔 작업 전 토끼도 들어 있습니다.
+고양이의 정면과 민들레 모습은 별가시 고슴도치를 참고한 **5×6픽셀 타원형 눈과 왼쪽 위 흰 점 1개**를 사용합니다. [이전 비교 미리보기](eye-preview.png)에는 누빔 작업 전 토끼도 들어 있습니다.
 
 ```sh
 python design/rabbit/adjust_eyes.py
 ```
 
-기존 명령 경로를 유지하며, Pillow로 고양이와 강아지의 64×72 게임 PNG에서 눈 영역을 정리합니다. 실행하면 두 주민의 비교용 HTML을 `/workspace/exports/resident-eye-style/preview.html`에 저장합니다.
+기존 명령 경로를 유지하며, Pillow로 고양이의 64×72 게임 PNG에서 눈 영역을 정리합니다. 실행하면 고양이의 비교용 HTML을 `/workspace/exports/resident-eye-style/preview.html`에 저장합니다.
