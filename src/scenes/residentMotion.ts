@@ -40,9 +40,13 @@ const ACTIONS: Record<string, readonly ActionFrame[]> = {
   ],
 };
 
-/** 꽃을 피워 주는 주민: 동작이 시작되고 bloomAt(ms)에 꽃이 피어요. (별마녀냥, 2026-11-11 사용자 결정) */
-export const FLOWER_GIFTERS: Readonly<Record<string, { bloomAt: number }>> = {
-  'sprout-witch-cat': { bloomAt: 700 },
+/**
+ * 꽃을 피워 주는 주민 (별마녀냥, 2026-11-11 사용자 결정)
+ * - bloomAt: 동작이 시작되고 몇 ms에 꽃이 피는지
+ * - holdUntil: 꽃을 받는 주민이 하던 일을 멈추고 정면으로 서서 기다리는 시간(동작 시작부터). 마법봉 동작이 끝날 때까지예요.
+ */
+export const FLOWER_GIFTERS: Readonly<Record<string, { bloomAt: number; holdUntil: number }>> = {
+  'sprout-witch-cat': { bloomAt: 700, holdUntil: 1400 },
 };
 /** 피운 꽃은 1분 동안 피어 있다가 사라지고, 마당마다 동시에 3송이까지만 둬요. (저장하지 않아요) */
 export const FLOWER_LIFETIME_MS = 60_000;

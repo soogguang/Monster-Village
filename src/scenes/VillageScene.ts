@@ -57,7 +57,8 @@ interface ResidentMotion {
   isFriend: () => boolean;
   speciesId: string | null;
   baseTexture: string;
-  phase: 'wait' | 'walk' | 'action';
+  /** held: 별마녀냥에게 꽃을 받는 동안 하던 일을 멈추고 정면으로 서서 기다려요 */
+  phase: 'wait' | 'walk' | 'action' | 'held';
   startedAt: number;
   duration: number;
   from: { x: number; y: number };
@@ -537,8 +538,26 @@ export class VillageScene extends Phaser.Scene {
     sprite.setTexture(motion.baseTexture);
   }
 
-  /** 별마녀냥: 꽃을 피워 줄 친구의 오른쪽 옆으로 걸어가요. (마법봉이 왼쪽 아래를 향해요) */
+  /** 꽃을 받을 주민은 하던 걷기·쉬는 동작을 멈추고 그 자리에 정면으로 서서 기다려요. */
+  private holdResident(target: ResidentMotion, now: number): void {
+    if (target.giftTarget) this.releaseResident(target.giftTarget, now);
+    if (target.phase === 'walk') {
+      const pose = residentWalkPose(target.from, target.to, now - target.startedAt, target.duration);
+      target.to = { x: pose.x, y: pose.groundY };
+    }
+    target.phase = 'held';
+    target.greet = false;
+    target.giftTarget = null;
+    target.sprite.setTexture(target.baseTexture).setPosition(target.to.x, target.to.y).setDepth(target.to.y);
+  }
+
+  private releaseResident(target: ResidentMotion, now: number): void {
+    if (target.phase === 'held') this.waitResident(target, now);
+  }
+
+  /** 별마녀냥: 꽃을 피워 줄 친구를 세워 두고, 그 친구 오른쪽 옆으로 걸어가요. (마법봉이 왼쪽 아래를 향해요) */
   private startGiftWalk(motion: ResidentMotion, target: ResidentMotion, now: number): void {
+    this.holdResident(target, now);
     motion.from = { ...motion.to };
     motion.to = { x: Math.round(target.to.x + T * 1.25), y: Math.round(target.to.y) };
     motion.duration = Math.max(320, Phaser.Math.Distance.Between(motion.from.x, motion.from.y, motion.to.x, motion.to.y) / T * 960);
@@ -608,8 +627,14 @@ export class VillageScene extends Phaser.Scene {
           motion.bloomed = true;
           this.bloomFlower(motion);
         }
+        // 마법봉 동작이 끝나면 세워 둔 친구가 다시 움직여요
+        if (gifter && motion.giftTarget && elapsed >= gifter.holdUntil) {
+          this.releaseResident(motion.giftTarget, now);
+          motion.giftTarget = null;
+        }
         const pose = residentActionPose(motion.speciesId, elapsed);
         if (!pose) {
+          if (motion.giftTarget) this.releaseResident(motion.giftTarget, now);
           motion.giftTarget = null;
           this.waitResident(motion, now);
         }
@@ -618,6 +643,8 @@ export class VillageScene extends Phaser.Scene {
           sprite.setTexture(this.textures.exists(key) ? key : motion.baseTexture);
           sprite.setPosition(motion.to.x, motion.to.y - pose.lift).setDepth(motion.to.y);
         }
+      } else if (motion.phase === 'held') {
+        // 꽃을 받는 중: 정면으로 서서 기다려요 (별마녀냥이 풀어 줄 때까지)
       } else if (elapsed >= motion.duration) {
         const images = residentActionImages(motion.speciesId);
         if (motion.actionNext && images.some((image) => this.textures.exists(characterKey(image)))) {

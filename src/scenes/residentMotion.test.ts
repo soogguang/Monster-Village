@@ -44,6 +44,8 @@ describe('주민 성격 동작', () => {
   it('별마녀냥은 마법봉을 내밀고(꽃이 피어나요) 앉아서 쉬어요', () => {
     expect(residentActionPose('sprout-witch-cat', 0)?.image).toBe('sprout-witch-cat-cast');
     expect(FLOWER_GIFTERS['sprout-witch-cat'].bloomAt).toBeLessThan(1400);
+    // 꽃을 받는 친구는 마법봉 동작이 끝날 때까지 서서 기다려요
+    expect(FLOWER_GIFTERS['sprout-witch-cat'].holdUntil).toBe(1400);
     expect(residentActionPose('sprout-witch-cat', 1400)?.image).toBe('sprout-witch-cat-sit');
     expect(residentActionPose('sprout-witch-cat', 3600)).toBeNull();
   });
