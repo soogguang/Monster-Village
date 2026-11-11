@@ -32,11 +32,12 @@ describe('주민 성격 동작', () => {
     expect(residentActionPose('sprout-rabbit', 3060)).toBeNull();
   });
 
-  it('꾸벅이 풀잎곰은 앉았다가 낙엽 이불을 덮고 잠들어요', () => {
+  it('꾸벅이 풀잎곰은 앉았다가 낙엽 이불을 덮고 오래(30초) 잠들어요', () => {
     expect(residentActionPose('sleepy-leaf-bear', 0)?.image).toBe('sleepy-leaf-bear-sit');
-    expect(residentActionPose('sleepy-leaf-bear', 1500)?.image).toBe('sleepy-leaf-bear-leaf-blanket');
-    expect(residentActionPose('sleepy-leaf-bear', 4700)?.image).toBe('sleepy-leaf-bear-sit');
-    expect(residentActionPose('sleepy-leaf-bear', 5900)).toBeNull();
+    expect(residentActionPose('sleepy-leaf-bear', 1200)?.image).toBe('sleepy-leaf-bear-leaf-blanket');
+    expect(residentActionPose('sleepy-leaf-bear', 31199)?.image).toBe('sleepy-leaf-bear-leaf-blanket');
+    expect(residentActionPose('sleepy-leaf-bear', 31200)?.image).toBe('sleepy-leaf-bear-sit');
+    expect(residentActionPose('sleepy-leaf-bear', 32400)).toBeNull();
     expect(residentActionImages('sleepy-leaf-bear')).toEqual(['sleepy-leaf-bear-sit', 'sleepy-leaf-bear-leaf-blanket']);
   });
 
