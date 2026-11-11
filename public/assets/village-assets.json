@@ -135,6 +135,48 @@
       ]
     },
     {
+      "name": "잠든 말랑 반죽",
+      "file": "characters/dough-soft-sleep.png",
+      "size": [
+        64,
+        72
+      ],
+      "alpha": "binary",
+      "texture_key": "dough-soft-sleep",
+      "anchor": [
+        0.5,
+        1
+      ]
+    },
+    {
+      "name": "잠든 심술 반죽",
+      "file": "characters/dough-grumpy-sleep.png",
+      "size": [
+        64,
+        72
+      ],
+      "alpha": "binary",
+      "texture_key": "dough-grumpy-sleep",
+      "anchor": [
+        0.5,
+        1
+      ]
+    },
+    {
+      "name": "잠든 몬스터 반죽",
+      "file": "characters/dough-monster-sleep.png",
+      "size": [
+        64,
+        72
+      ],
+      "alpha": "binary",
+      "texture_key": "dough-monster-sleep",
+      "anchor": [
+        0.5,
+        1
+      ]
+    },
+    {
       "name": "내 캐릭터 정면",
       "file": "characters/player-front.png",
       "size": [

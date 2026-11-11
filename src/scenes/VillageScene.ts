@@ -437,7 +437,9 @@ export class VillageScene extends Phaser.Scene {
       view.zzz.setPosition(x + T * 0.6, y - T * 2);
       const stage = doughStage(task, now);
       const sleepy = state.focus?.taskId === task.id;
-      view.sprite.setTexture(`dough-${stage}`);
+      const awakeTexture = `dough-${stage}`;
+      const sleepTexture = `${awakeTexture}-sleep`;
+      view.sprite.setTexture(sleepy && this.textures.exists(sleepTexture) ? sleepTexture : awakeTexture);
       view.zzz.setVisible(sleepy);
       view.label.setText(`${shorten(task.title)}\n${sleepy ? '졸림' : stage === 'grumpy' && isStuckGrumpy(task, now) ? '굳은 심술' : STAGE_LABELS[stage]}`);
     });
