@@ -48,8 +48,8 @@ const ACTIONS: Record<string, readonly ActionFrame[]> = {
 export const FLOWER_GIFTERS: Readonly<Record<string, { bloomAt: number; holdUntil: number }>> = {
   'sprout-witch-cat': { bloomAt: 700, holdUntil: 1400 },
 };
-/** 피운 꽃은 1분 동안 피어 있다가 사라지고, 마당마다 동시에 3송이까지만 둬요. (저장하지 않아요) */
-export const FLOWER_LIFETIME_MS = 60_000;
+/** 피운 꽃은 10초 동안 피어 있다가(마지막 2초는 서서히) 사라지고, 마당마다 동시에 3송이까지만 둬요. (저장하지 않아요, 2026-11-11 사용자 결정) */
+export const FLOWER_LIFETIME_MS = 10_000;
 export const MAX_FLOWERS_PER_YARD = 3;
 export const SEASON_FLOWERS = ['flower-tulip', 'flower-hydrangea', 'flower-sunflower', 'flower-camellia'] as const;
 export type SeasonFlower = (typeof SEASON_FLOWERS)[number];

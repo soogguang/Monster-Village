@@ -575,7 +575,7 @@ export class VillageScene extends Phaser.Scene {
     motion.bloomed = false;
   }
 
-  /** 마법봉 끝 아래, 친구 발치에 계절 꽃이 피어나요. 별빛 몇 개가 반짝이고, 1분 뒤 서서히 사라져요. */
+  /** 마법봉 끝 아래, 친구 발치에 계절 꽃이 피어나요. 별빛 몇 개가 반짝이고, 10초 뒤(마지막 2초 동안 서서히) 사라져요. */
   private bloomFlower(motion: ResidentMotion): void {
     const key = characterKey(seasonFlower(new Date()));
     if (!this.textures.exists(key)) return;

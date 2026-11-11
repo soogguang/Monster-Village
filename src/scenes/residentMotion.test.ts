@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FLOWER_GIFTERS, residentActionImages, residentActionPose, residentWalkPose, seasonFlower } from './residentMotion';
+import { FLOWER_GIFTERS, FLOWER_LIFETIME_MS, residentActionImages, residentActionPose, residentWalkPose, seasonFlower } from './residentMotion';
 
 describe('주민 걷기', () => {
   it('이동하는 동안 픽셀 격자를 지키고 발밑 깊이는 점프와 분리해요', () => {
@@ -46,6 +46,8 @@ describe('주민 성격 동작', () => {
     expect(FLOWER_GIFTERS['sprout-witch-cat'].bloomAt).toBeLessThan(1400);
     // 꽃을 받는 친구는 마법봉 동작이 끝날 때까지 서서 기다려요
     expect(FLOWER_GIFTERS['sprout-witch-cat'].holdUntil).toBe(1400);
+    // 피운 꽃은 10초 뒤 사라져요
+    expect(FLOWER_LIFETIME_MS).toBe(10_000);
     expect(residentActionPose('sprout-witch-cat', 1400)?.image).toBe('sprout-witch-cat-sit');
     expect(residentActionPose('sprout-witch-cat', 3600)).toBeNull();
   });
