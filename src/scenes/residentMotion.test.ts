@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { residentActionImages, residentActionPose, residentWalkPose } from './residentMotion';
+import { FLOWER_GIFTERS, residentActionImages, residentActionPose, residentWalkPose, seasonFlower } from './residentMotion';
 
 describe('주민 걷기', () => {
   it('이동하는 동안 픽셀 격자를 지키고 발밑 깊이는 점프와 분리해요', () => {
@@ -39,6 +39,21 @@ describe('주민 성격 동작', () => {
     expect(residentActionPose('sleepy-leaf-bear', 31200)?.image).toBe('sleepy-leaf-bear-sit');
     expect(residentActionPose('sleepy-leaf-bear', 32400)).toBeNull();
     expect(residentActionImages('sleepy-leaf-bear')).toEqual(['sleepy-leaf-bear-sit', 'sleepy-leaf-bear-leaf-blanket']);
+  });
+
+  it('별마녀냥은 마법봉을 내밀고(꽃이 피어나요) 앉아서 쉬어요', () => {
+    expect(residentActionPose('sprout-witch-cat', 0)?.image).toBe('sprout-witch-cat-cast');
+    expect(FLOWER_GIFTERS['sprout-witch-cat'].bloomAt).toBeLessThan(1400);
+    expect(residentActionPose('sprout-witch-cat', 1400)?.image).toBe('sprout-witch-cat-sit');
+    expect(residentActionPose('sprout-witch-cat', 3600)).toBeNull();
+  });
+
+  it('계절 꽃: 봄 튤립, 여름 수국, 가을 해바라기, 겨울 동백', () => {
+    const flower = (month: number) => seasonFlower(new Date(2026, month - 1, 15));
+    expect([3, 4, 5].map(flower)).toEqual(Array(3).fill('flower-tulip'));
+    expect([6, 7, 8].map(flower)).toEqual(Array(3).fill('flower-hydrangea'));
+    expect([9, 10, 11].map(flower)).toEqual(Array(3).fill('flower-sunflower'));
+    expect([12, 1, 2].map(flower)).toEqual(Array(3).fill('flower-camellia'));
   });
 
   it('만두는 먹은 뒤 볼을 채우고, 새 주민의 행동이 없으면 그대로 쉬어요', () => {

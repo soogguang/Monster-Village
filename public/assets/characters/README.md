@@ -1,4 +1,4 @@
-# 캐릭터 이미지: 만두·강아지·솜털고양이·펠트토끼·풀잎곰
+# 캐릭터 이미지: 만두·강아지·솜털고양이·펠트토끼·풀잎곰·별마녀냥
 
 만두는 **음식을 먹으면 몸통 양옆의 둥근 볼주머니에 차곡차곡 저장해요.**
 몸통은 가로로 넓적하며, 음식이 찬 모습에서는 다람쥐처럼 주머니가 얼굴과 같은 높이에서
@@ -67,3 +67,12 @@ PNG 16개는 주민 4종의 서로 다른 모습이며 별도 주민 16종이 �
 | `sleepy-leaf-bear.png` | 풀잎곰 정면 | `catalog.json`의 `image` |
 | `sleepy-leaf-bear-sit.png` | 웃으며 앉은 모습 | 쉬는 동작 |
 | `sleepy-leaf-bear-leaf-blanket.png` | 특별한 모습 '낙엽 이불' (낙엽을 덮고 잠듦) | 쉬는 동작, `sleepImage` |
+
+별마녀냥(`sprout-witch-cat`)은 첫 **희귀 새싹**이고 쉬고 돌아오기 습관으로 해금돼요. 친구 발치에 계절 꽃을 피워 주고 가요.
+
+| 파일 | 내용 | 연결 |
+| --- | --- | --- |
+| `sprout-witch-cat.png` | 별마녀냥 정면 (별 마법봉) | `catalog.json`의 `image` |
+| `sprout-witch-cat-cast.png` | 마법봉을 내밀어 꽃을 피우는 모습 | 꽃 선물 동작 |
+| `sprout-witch-cat-sit.png` | 웃으며 앉은 모습 | 쉬는 동작, `sleepImage` |
+| `flower-tulip.png` · `flower-hydrangea.png` · `flower-sunflower.png` · `flower-camellia.png` | 계절 꽃 16×16 (봄·여름·가을·겨울) | 별마녀냥이 피우는 꽃 |

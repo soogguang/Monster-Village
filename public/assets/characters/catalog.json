@@ -54,6 +54,17 @@
       "sleepImage": "sleepy-leaf-bear-leaf-blanket.png",
       "personality": "포근한 자리를 좋아해서, 쉬는 시간이면 잎을 모아 자기만의 이불을 만드는 친구",
       "motif": "풀잎·낙엽 이불"
+    },
+    {
+      "id": "sprout-witch-cat",
+      "name": "별마녀냥",
+      "kind": "sprout",
+      "rare": true,
+      "unlock": "rest-and-return",
+      "image": "sprout-witch-cat.png",
+      "sleepImage": "sprout-witch-cat-sit.png",
+      "personality": "말은 적지만 친구를 기쁘게 해주고 싶어서, 슬쩍 다가가 꽃을 피워놓고 가는 고양이",
+      "motif": "마녀 모자·별 마법봉·계절 꽃"
     }
   ]
 }

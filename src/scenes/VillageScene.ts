@@ -14,7 +14,10 @@ import { buildTiles, createHomeLayout, createVillageLayout, withMinWidth, type R
 import { MEADOW_TILES, grassTileAt, villageDecor, worldBlocks } from '../world/decor';
 import { LANDMARK_TEXT, canInteract, landmarkTargets, nearbyLandmark, type LandmarkId, type LandmarkTarget, type VillageActions } from '../world/interactions';
 import { makePlaceholderTextures } from './textures';
-import { residentActionImages, residentActionPose, residentWalkPose } from './residentMotion';
+import {
+  FLOWER_GIFTERS, FLOWER_LIFETIME_MS, MAX_FLOWERS_PER_YARD, SEASON_FLOWERS,
+  residentActionImages, residentActionPose, residentWalkPose, seasonFlower,
+} from './residentMotion';
 
 const T = TILE_SIZE;
 /** 초당 이동 거리 (타일 5.6칸) */
@@ -61,6 +64,10 @@ interface ResidentMotion {
   to: { x: number; y: number };
   actionNext: boolean;
   greet: boolean;
+  /** 꽃을 피워 줄 친구(별마녀냥). 그 친구 옆으로 걸어가는 중이거나 꽃을 피우는 중이에요 */
+  giftTarget: ResidentMotion | null;
+  /** 이번 동작에서 꽃을 이미 피웠는지 */
+  bloomed: boolean;
 }
 
 export class VillageScene extends Phaser.Scene {
@@ -82,6 +89,8 @@ export class VillageScene extends Phaser.Scene {
   private doughViews = new Map<string, DoughView>();
   private residentViews = new Map<string, Phaser.GameObjects.Image>();
   private residentMotions = new Map<Phaser.GameObjects.Image, ResidentMotion>();
+  /** 별마녀냥이 피운 꽃 (마당마다 최대 MAX_FLOWERS_PER_YARD송이, 잠시 뒤 사라져요) */
+  private giftFlowers = new Map<YardPlan, Phaser.GameObjects.Image[]>();
   /** 주민별 친밀도 (♥가 오르면 하트를 띄우고, 친해진 주민은 가끔 인사하러 와요) */
   private residentHearts = new Map<string, number>();
   private yardSigns = new Map<string, Phaser.GameObjects.Text>();
@@ -112,6 +121,7 @@ export class VillageScene extends Phaser.Scene {
         if (image !== c.id) this.load.image(characterKey(image), `${this.characterDir}${image}.png`);
       }
     }
+    for (const flower of SEASON_FLOWERS) this.load.image(characterKey(flower), `${this.characterDir}${flower}.png`);
     for (const a of this.worldAssets) this.load.image(a.key, a.url);
     for (const avatar of AVATARS) this.load.spritesheet(avatarTexture(avatar.id), `${this.characterDir}avatars/${avatar.id}-walk.png`, {
       frameWidth: AVATAR_FRAME.width, frameHeight: AVATAR_FRAME.height,
@@ -353,6 +363,8 @@ export class VillageScene extends Phaser.Scene {
     for (const { sprites } of this.friendYards.values()) for (const s of sprites) { this.tweens.killTweensOf(s); s.destroy(); }
     this.friendYards.clear();
     this.residentMotions.clear();
+    for (const list of this.giftFlowers.values()) for (const f of list) { this.tweens.killTweensOf(f); f.destroy(); }
+    this.giftFlowers.clear();
     this.yardSigns.clear();
     this.campfire = this.campfireLabel = this.treeLabel = null;
     this.world = null;
@@ -486,7 +498,7 @@ export class VillageScene extends Phaser.Scene {
     this.residentMotions.set(sprite, {
       sprite, yard, rng, isFriend, speciesId: r.speciesId ?? null, baseTexture: key,
       phase: 'wait', startedAt: this.time.now, duration: rng.between(1200, 3000),
-      from: ground, to: ground, actionNext: true, greet: false,
+      from: ground, to: ground, actionNext: true, greet: false, giftTarget: null, bloomed: true,
     });
     sprite.once(Phaser.GameObjects.Events.DESTROY, () => this.residentMotions.delete(sprite));
     return sprite;
@@ -525,6 +537,52 @@ export class VillageScene extends Phaser.Scene {
     sprite.setTexture(motion.baseTexture);
   }
 
+  /** 별마녀냥: 꽃을 피워 줄 친구의 오른쪽 옆으로 걸어가요. (마법봉이 왼쪽 아래를 향해요) */
+  private startGiftWalk(motion: ResidentMotion, target: ResidentMotion, now: number): void {
+    motion.from = { ...motion.to };
+    motion.to = { x: Math.round(target.to.x + T * 1.25), y: Math.round(target.to.y) };
+    motion.duration = Math.max(320, Phaser.Math.Distance.Between(motion.from.x, motion.from.y, motion.to.x, motion.to.y) / T * 960);
+    motion.startedAt = now;
+    motion.phase = 'walk';
+    motion.greet = false;
+    motion.giftTarget = target;
+    motion.sprite.setTexture(motion.baseTexture);
+  }
+
+  private startResidentAction(motion: ResidentMotion, now: number): void {
+    motion.phase = 'action';
+    motion.startedAt = now;
+    motion.actionNext = false;
+    motion.bloomed = false;
+  }
+
+  /** 마법봉 끝 아래, 친구 발치에 계절 꽃이 피어나요. 별빛 몇 개가 반짝이고, 1분 뒤 서서히 사라져요. */
+  private bloomFlower(motion: ResidentMotion): void {
+    const key = characterKey(seasonFlower(new Date()));
+    if (!this.textures.exists(key)) return;
+    const target = motion.giftTarget && this.residentMotions.has(motion.giftTarget.sprite) ? motion.giftTarget : null;
+    const x = target ? Math.round(target.sprite.x + 12) : motion.to.x - 16;
+    const y = (target ? (target.phase === 'walk' ? Math.round(target.sprite.y) : target.to.y) : motion.to.y) + 3;
+    const flower = this.add.image(x, y, key).setOrigin(0.5, 1).setDepth(y - 1).setScale(0);
+    this.tweens.add({ targets: flower, scale: 1, duration: 350, ease: 'Back.Out' });
+    for (let i = 0; i < 3; i++) {
+      const star = this.add.rectangle(x + (i - 1) * 6, y - 12 - (i % 2) * 4, 2, 2, 0xf8cc5e).setDepth(y + 1);
+      this.tweens.add({ targets: star, y: star.y - 8, alpha: 0, duration: 700, delay: i * 90, onComplete: () => star.destroy() });
+    }
+    const list = this.giftFlowers.get(motion.yard) ?? [];
+    list.push(flower);
+    while (list.length > MAX_FLOWERS_PER_YARD) { const old = list.shift()!; this.tweens.killTweensOf(old); old.destroy(); }
+    this.giftFlowers.set(motion.yard, list);
+    this.time.delayedCall(FLOWER_LIFETIME_MS - 2000, () => {
+      if (!flower.active) return;
+      this.tweens.add({ targets: flower, alpha: 0, duration: 2000, onComplete: () => {
+        const i = list.indexOf(flower);
+        if (i >= 0) list.splice(i, 1);
+        flower.destroy();
+      } });
+    });
+  }
+
   private waitResident(motion: ResidentMotion, now: number): void {
     motion.sprite.setTexture(motion.baseTexture).setPosition(motion.to.x, motion.to.y).setDepth(motion.to.y);
     motion.phase = 'wait';
@@ -541,11 +599,20 @@ export class VillageScene extends Phaser.Scene {
         sprite.setPosition(pose.x, pose.y).setDepth(pose.groundY);
         if (pose.done) {
           if (motion.greet) this.popHeart(sprite);
-          this.waitResident(motion, now);
+          if (motion.giftTarget) this.startResidentAction(motion, now);
+          else this.waitResident(motion, now);
         }
       } else if (motion.phase === 'action') {
+        const gifter = motion.speciesId ? FLOWER_GIFTERS[motion.speciesId] : undefined;
+        if (gifter && !motion.bloomed && elapsed >= gifter.bloomAt) {
+          motion.bloomed = true;
+          this.bloomFlower(motion);
+        }
         const pose = residentActionPose(motion.speciesId, elapsed);
-        if (!pose) this.waitResident(motion, now);
+        if (!pose) {
+          motion.giftTarget = null;
+          this.waitResident(motion, now);
+        }
         else {
           const key = characterKey(pose.image);
           sprite.setTexture(this.textures.exists(key) ? key : motion.baseTexture);
@@ -554,9 +621,12 @@ export class VillageScene extends Phaser.Scene {
       } else if (elapsed >= motion.duration) {
         const images = residentActionImages(motion.speciesId);
         if (motion.actionNext && images.some((image) => this.textures.exists(characterKey(image)))) {
-          motion.phase = 'action';
-          motion.startedAt = now;
-          motion.actionNext = false;
+          // 별마녀냥은 같은 마당의 다른 주민에게 먼저 걸어가서 꽃을 피워 줘요. (혼자면 제자리에서 피워요)
+          const friends = motion.speciesId && FLOWER_GIFTERS[motion.speciesId]
+            ? [...this.residentMotions.values()].filter((m) => m !== motion && m.yard === motion.yard)
+            : [];
+          if (friends.length) this.startGiftWalk(motion, motion.rng.pick(friends), now);
+          else this.startResidentAction(motion, now);
         } else this.startResidentWalk(motion, now);
       }
       // 정면 한 장을 좌우로 뒤집으면 비대칭 얼굴의 눈이 옆으로 튀어요.

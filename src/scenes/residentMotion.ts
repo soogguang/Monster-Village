@@ -26,6 +26,11 @@ const ACTIONS: Record<string, readonly ActionFrame[]> = {
     { image: 'sprout-rabbit', ms: 300 },
     { image: 'sprout-rabbit-sit', ms: 1800 },
   ],
+  // 희귀 새싹 별마녀냥: 친구 옆으로 가서 별 마법봉을 내밀면 발치에 계절 꽃이 피어나고, 앉아서 쉬어요.
+  'sprout-witch-cat': [
+    { image: 'sprout-witch-cat-cast', ms: 1400 },
+    { image: 'sprout-witch-cat-sit', ms: 2200 },
+  ],
   // 꾸벅이 풀잎곰: 앉았다가 낙엽을 모아 덮고 꾸벅 잠들어요(특별한 모습 '낙엽 이불').
   // 꾸벅이는 쉬거나 자는 모습을 훨씬 길게 해요(사용자 결정). 30초 자고 일어나서 잠깐 걸어서, 대부분 낙엽 이불 속에 있어요.
   'sleepy-leaf-bear': [
@@ -34,6 +39,25 @@ const ACTIONS: Record<string, readonly ActionFrame[]> = {
     { image: 'sleepy-leaf-bear-sit', ms: 1200 },
   ],
 };
+
+/** 꽃을 피워 주는 주민: 동작이 시작되고 bloomAt(ms)에 꽃이 피어요. (별마녀냥, 2026-11-11 사용자 결정) */
+export const FLOWER_GIFTERS: Readonly<Record<string, { bloomAt: number }>> = {
+  'sprout-witch-cat': { bloomAt: 700 },
+};
+/** 피운 꽃은 1분 동안 피어 있다가 사라지고, 마당마다 동시에 3송이까지만 둬요. (저장하지 않아요) */
+export const FLOWER_LIFETIME_MS = 60_000;
+export const MAX_FLOWERS_PER_YARD = 3;
+export const SEASON_FLOWERS = ['flower-tulip', 'flower-hydrangea', 'flower-sunflower', 'flower-camellia'] as const;
+export type SeasonFlower = (typeof SEASON_FLOWERS)[number];
+
+/** 내 시간대 날짜로 계절 꽃을 골라요: 봄(3~5월) 튤립, 여름(6~8월) 수국, 가을(9~11월) 해바라기, 겨울(12~2월) 동백 */
+export function seasonFlower(date: Date): SeasonFlower {
+  const month = date.getMonth() + 1;
+  if (month >= 3 && month <= 5) return 'flower-tulip';
+  if (month >= 6 && month <= 8) return 'flower-hydrangea';
+  if (month >= 9 && month <= 11) return 'flower-sunflower';
+  return 'flower-camellia';
+}
 
 export function residentActionImages(speciesId: string | null): string[] {
   return [...new Set((ACTIONS[speciesId ?? ''] ?? []).map((frame) => frame.image))];
