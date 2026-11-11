@@ -34,8 +34,10 @@
 | `sprout-cat-dandelion.png` | 민들레 형태 | 변신 동작에 연결할 추가 이미지 |
 | `sprout-cat-sleep.png` | 민들레 형태로 쉬기 | `catalog.json`의 `sleepImage` |
 | `sprout-rabbit.png` | 펠트토끼 정면 | `catalog.json`의 `image` |
-| `sprout-rabbit-jump.png` | 귀를 펼치고 점프 | 점프 동작에 연결할 추가 이미지 |
-| `sprout-rabbit-land.png` | 눈을 감고 착지 | 착지 동작에 연결할 추가 이미지 |
+| `sprout-rabbit-jump.png` | 귀를 펼치고 점프 | 쉬는 동작(폴짝) |
+| `sprout-rabbit-back.png` | 펠트토끼 뒷모습 | 뒤로 걷는 모습에 연결할 추가 이미지 |
+| `sprout-rabbit-sit.png` | 웃으며 앉은 모습 | 쉬는 동작(폴짝 뒤) |
+| `sprout-rabbit-land.png` | 눈을 감고 착지 (예전 그림체) | 지금은 쓰지 않음 |
 | `sprout-rabbit-sleep.png` | 귀를 늘어뜨리고 쉬기 | `catalog.json`의 `sleepImage` |
 
 모든 파일은 **64×72픽셀 RGBA PNG**입니다. 투명도는 0 또는 255이며,

@@ -24,11 +24,12 @@ describe('주민 걷기', () => {
 });
 
 describe('주민 성격 동작', () => {
-  it('토끼는 착지 → 점프 → 착지하고, 끝나면 기본 모습으로 돌아갈 수 있어요', () => {
-    expect(residentActionPose('sprout-rabbit', 0)).toEqual({ image: 'sprout-rabbit-land', lift: 0 });
+  it('토끼는 정면 → 점프 → 정면으로 폴짝 뛴 뒤 앉고, 끝나면 기본 모습으로 돌아갈 수 있어요', () => {
+    expect(residentActionPose('sprout-rabbit', 0)).toEqual({ image: 'sprout-rabbit', lift: 0 });
     expect(residentActionPose('sprout-rabbit', 180)).toEqual({ image: 'sprout-rabbit-jump', lift: 8 });
-    expect(residentActionPose('sprout-rabbit', 480)).toEqual({ image: 'sprout-rabbit-land', lift: 0 });
-    expect(residentActionPose('sprout-rabbit', 1260)).toBeNull();
+    expect(residentActionPose('sprout-rabbit', 480)).toEqual({ image: 'sprout-rabbit', lift: 0 });
+    expect(residentActionPose('sprout-rabbit', 1260)).toEqual({ image: 'sprout-rabbit-sit', lift: 0 });
+    expect(residentActionPose('sprout-rabbit', 3060)).toBeNull();
   });
 
   it('만두는 먹은 뒤 볼을 채우고, 새 주민의 행동이 없으면 그대로 쉬어요', () => {
