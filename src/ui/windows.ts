@@ -826,7 +826,7 @@ const HELP_SECTIONS: { id: string; title: string; html: string }[] = [
         <figure><img src="{{chars}}dough-monster.png" alt="몬스터 반죽" draggable="false" /><figcaption><b>👾 몬스터 반죽</b>끝내지 못한 채 마감이 지났어요. 말랑이든 심술이든 마감을 넘기면 몬스터 반죽이 돼요.</figcaption></figure>
       </div>
       <ul>
-      <li>집중하는 동안에는 어느 단계든 졸려서 얌전해져요 (z z).</li>
+      <li>집중하는 동안에는 그 할 일의 반죽이 눈을 감고 잠들어요 (z z). 집중을 끝내면 다시 눈을 떠요.</li>
       <li>할 일을 끝내면 반죽이 주민으로 태어나요. 몬스터 반죽이 된 뒤에 끝내도 태어나요. 언제 끝냈는지에 따라 주민이 달라져요. (아래 "주민 만나기")</li>
       <li>마감을 뒤로 미루면 미룬 횟수가 남고, 방 친구들에게도 보여요.</li>
       <li>할 일 수첩이나 캘린더에서 <b>지우기</b>를 누르면 할 일과 반죽이 사라져요. 이미 태어난 주민은 그대로고, 집중했던 시간 기록도 남아요.</li>
