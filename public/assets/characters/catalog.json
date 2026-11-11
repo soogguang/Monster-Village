@@ -43,6 +43,17 @@
       "sleepImage": "sprout-rabbit-sleep.png",
       "personality": "긴 펠트 귀를 흔들며 폴짝폴짝 뛰는 걸 좋아해요.",
       "motif": "펠트 토끼"
+    },
+    {
+      "id": "sleepy-leaf-bear",
+      "name": "풀잎곰",
+      "kind": "sleepy",
+      "rare": false,
+      "unlock": null,
+      "image": "sleepy-leaf-bear.png",
+      "sleepImage": "sleepy-leaf-bear-leaf-blanket.png",
+      "personality": "포근한 자리를 좋아해서, 쉬는 시간이면 잎을 모아 자기만의 이불을 만드는 친구",
+      "motif": "풀잎·낙엽 이불"
     }
   ]
 }

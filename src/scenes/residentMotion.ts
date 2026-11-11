@@ -26,6 +26,12 @@ const ACTIONS: Record<string, readonly ActionFrame[]> = {
     { image: 'sprout-rabbit', ms: 300 },
     { image: 'sprout-rabbit-sit', ms: 1800 },
   ],
+  // 꾸벅이 풀잎곰: 앉았다가 낙엽을 모아 덮고 꾸벅 잠들어요(특별한 모습 '낙엽 이불').
+  'sleepy-leaf-bear': [
+    { image: 'sleepy-leaf-bear-sit', ms: 1500 },
+    { image: 'sleepy-leaf-bear-leaf-blanket', ms: 3200 },
+    { image: 'sleepy-leaf-bear-sit', ms: 1200 },
+  ],
 };
 
 export function residentActionImages(speciesId: string | null): string[] {
