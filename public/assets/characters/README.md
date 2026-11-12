@@ -22,23 +22,15 @@
 | `sprout-mandu.png` | 기본 정면 | `catalog.json`의 `image` |
 | `sprout-mandu-eat.png` | 딸기를 먹는 모습 | 먹기 동작에 연결할 추가 이미지 |
 | `sprout-mandu-full.png` | 양 볼에 음식을 저장한 모습 | 볼이 찬 상태에 연결할 추가 이미지 |
-| `sprout-mandu-sleep.png` | 볼에 음식을 저장한 채 잠든 모습 | `catalog.json`의 `sleepImage` |
 | `sprout-puppy.png` | 강아지 정면 | `catalog.json`의 `image` |
-| `sprout-puppy-back.png` | 강아지 뒷모습 | 뒤로 걷는 모습에 연결할 추가 이미지 |
 | `sprout-puppy-dig.png` | 앞발로 땅을 파는 모습(눈썹이 포인트) | 쉬는 동작 |
 | `sprout-puppy-sit.png` | 웃으며 앉은 모습 | 쉬는 동작(땅파기 뒤) |
-| `sprout-puppy-sleep.png` | 앉아서 잠든 모습 | `catalog.json`의 `sleepImage` |
 | `sprout-cat.png` | 솜털고양이 정면 | `catalog.json`의 `image` |
-| `sprout-cat-back.png` | 솜털고양이 뒷모습 | 뒤로 걷는 모습에 연결할 추가 이미지 |
 | `sprout-cat-sit.png` | 솜털고양이 앉은 모습 | 쉬는 동작(앉기 → 민들레 → 앉기) |
 | `sprout-cat-dandelion.png` | 민들레 형태 | 변신 동작에 연결할 추가 이미지 |
-| `sprout-cat-sleep.png` | 민들레 형태로 쉬기 | `catalog.json`의 `sleepImage` |
 | `sprout-rabbit.png` | 펠트토끼 정면 | `catalog.json`의 `image` |
 | `sprout-rabbit-jump.png` | 귀를 펼치고 점프 | 쉬는 동작(폴짝) |
-| `sprout-rabbit-back.png` | 펠트토끼 뒷모습 | 뒤로 걷는 모습에 연결할 추가 이미지 |
 | `sprout-rabbit-sit.png` | 웃으며 앉은 모습 | 쉬는 동작(폴짝 뒤) |
-| `sprout-rabbit-land.png` | 눈을 감고 착지 (예전 그림체) | 지금은 쓰지 않음 |
-| `sprout-rabbit-sleep.png` | 귀를 늘어뜨리고 쉬기 | `catalog.json`의 `sleepImage` |
 
 모든 파일은 **64×72픽셀 RGBA PNG**입니다. 투명도는 0 또는 255이며,
 가로로 가운데 정렬하고 바닥을 y=70에 맞췄습니다. 마지막 행(y=71)은 투명합니다.
@@ -49,13 +41,13 @@ Phaser에서는 원본 크기로 불러오고 최신 카메라 배율 **1배·2�
 32픽셀 파일을 두 배로 늘리는 대신, 큰 원본과 복원된 격자에서 다시 정리했습니다.
 고양이는 2026-11-10 사용자가 준 픽셀 그림(정면·뒷모습·앉기·민들레)을 원본 격자 그대로 1칸 = 1픽셀로 옮겼습니다.
 네 장이 같은 색표를 쓰고 외곽선은 진한 갈색이며, 화면에서 줄이지 않고 원래 크기(정면 높이 53픽셀)로 그립니다.
-ω 모양 입이 고양이의 포인트입니다. 잠자기 그림은 아직 예전 그림체입니다.
+ω 모양 입이 고양이의 포인트입니다.
 만두도 승인된 넓적한 큰 원본에서 다시 변환해 눈과 입의 디테일을 살렸으며,
 넓적한 비율과 얼굴 높이의 볼주머니를 유지합니다.
 서 있는 모습, 땅파기·수면·민들레 형태는 자세에 따라 높이가 다릅니다.
 
 네 캐릭터는 기본 일반 새싹(`sprout`, `rare: false`, `unlock: null`)으로 등록했습니다.
-현재 렌더러는 기본 `image`와 먹기·볼 저장·땅파기·민들레 모습·점프·착지 그림을 불러옵니다.
+현재 렌더러는 기본 `image`와 쉬는 동작 그림(먹기·볼 저장·땅파기·앉기·민들레·점프·낙엽 이불·마법봉)을 불러옵니다. 예전 뒷모습·잠자기·착지 그림은 2026-11-12에 지웠습니다.
 `src/scenes/residentMotion.ts`에서 쉬는 동안의 행동으로 연결했고, 정면 이동은 좌우 반전 없이 작은 통통 뛰기로 표현합니다.
 주민 뒷모습은 쓰지 않기로 했습니다(2026-11-11 사용자 결정). 고양이는 둥근 눈에 크림색 반짝임 1점, 세모 코, ω 입이고 민들레 모습은 웃는 눈입니다.
 PNG 16개는 주민 4종의 서로 다른 모습이며 별도 주민 16종이 아닙니다.

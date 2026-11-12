@@ -7,7 +7,6 @@
       "rare": false,
       "unlock": null,
       "image": "sprout-mandu.png",
-      "sleepImage": "sprout-mandu-sleep.png",
       "personality": "음식을 먹으면 몸통 양옆의 둥근 볼주머니에 차곡차곡 저장해요.",
       "motif": "만두"
     },
@@ -18,7 +17,6 @@
       "rare": false,
       "unlock": null,
       "image": "sprout-puppy.png",
-      "sleepImage": "sprout-puppy-sleep.png",
       "personality": "땅파기를 좋아해요.",
       "motif": "강아지"
     },
@@ -29,7 +27,6 @@
       "rare": false,
       "unlock": null,
       "image": "sprout-cat.png",
-      "sleepImage": "sprout-cat-sleep.png",
       "personality": "민들레처럼 쉬는 걸 좋아해요.",
       "motif": "고양이"
     },
@@ -40,7 +37,6 @@
       "rare": false,
       "unlock": null,
       "image": "sprout-rabbit.png",
-      "sleepImage": "sprout-rabbit-sleep.png",
       "personality": "긴 펠트 귀를 흔들며 폴짝폴짝 뛰는 걸 좋아해요.",
       "motif": "펠트 토끼"
     },
