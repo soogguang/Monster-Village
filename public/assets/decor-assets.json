@@ -1,0 +1,828 @@
+{
+  "schema_version": 1,
+  "status": "runtime-integrated",
+  "compatible_with": "village-art-v1",
+  "tile_size": 32,
+  "file_base_url": "/assets/",
+  "assets": [
+    {
+      "id": "decor-tree-round",
+      "name": "둥근 잎나무",
+      "file": "objects/decor-tree-round.png",
+      "size": [
+        192,
+        240
+      ],
+      "alpha": "binary",
+      "anchor": [
+        0.5,
+        1
+      ],
+      "category": "tree",
+      "layer_hint": "depth-sorted",
+      "texture_key": "decor-tree-round"
+    },
+    {
+      "id": "decor-tree-birch",
+      "name": "자작나무",
+      "file": "objects/decor-tree-birch.png",
+      "size": [
+        144,
+        240
+      ],
+      "alpha": "binary",
+      "anchor": [
+        0.5,
+        1
+      ],
+      "category": "tree",
+      "layer_hint": "depth-sorted",
+      "texture_key": "decor-tree-birch"
+    },
+    {
+      "id": "decor-tree-blossom",
+      "name": "분홍 꽃나무",
+      "file": "objects/decor-tree-blossom.png",
+      "size": [
+        192,
+        240
+      ],
+      "alpha": "binary",
+      "anchor": [
+        0.5,
+        1
+      ],
+      "category": "tree",
+      "layer_hint": "depth-sorted",
+      "texture_key": "decor-tree-blossom"
+    },
+    {
+      "id": "decor-tree-citrus",
+      "name": "금빛 열매나무",
+      "file": "objects/decor-tree-citrus.png",
+      "size": [
+        192,
+        240
+      ],
+      "alpha": "binary",
+      "anchor": [
+        0.5,
+        1
+      ],
+      "category": "tree",
+      "layer_hint": "depth-sorted",
+      "texture_key": "decor-tree-citrus"
+    },
+    {
+      "id": "decor-bush-round",
+      "name": "동글 관목",
+      "file": "objects/decor-bush-round.png",
+      "size": [
+        96,
+        72
+      ],
+      "alpha": "binary",
+      "anchor": [
+        0.5,
+        1
+      ],
+      "category": "shrub",
+      "layer_hint": "depth-sorted",
+      "texture_key": "decor-bush-round"
+    },
+    {
+      "id": "decor-bush-hydrangea",
+      "name": "파랑·보라 수국",
+      "file": "objects/decor-bush-hydrangea.png",
+      "size": [
+        96,
+        96
+      ],
+      "alpha": "binary",
+      "anchor": [
+        0.5,
+        1
+      ],
+      "category": "shrub",
+      "layer_hint": "depth-sorted",
+      "texture_key": "decor-bush-hydrangea"
+    },
+    {
+      "id": "decor-bush-blossom",
+      "name": "분홍·크림 꽃관목",
+      "file": "objects/decor-bush-blossom.png",
+      "size": [
+        96,
+        96
+      ],
+      "alpha": "binary",
+      "anchor": [
+        0.5,
+        1
+      ],
+      "category": "shrub",
+      "layer_hint": "depth-sorted",
+      "texture_key": "decor-bush-blossom"
+    },
+    {
+      "id": "decor-hedge",
+      "name": "낮은 생울타리",
+      "file": "objects/decor-hedge.png",
+      "size": [
+        96,
+        72
+      ],
+      "alpha": "binary",
+      "anchor": [
+        0.5,
+        1
+      ],
+      "category": "shrub",
+      "layer_hint": "depth-sorted",
+      "repeat_stride_px": 72,
+      "notes": "96×72 그림을 72픽셀 간격으로 겹쳐 배치합니다. 벽 충돌은 별도입니다.",
+      "texture_key": "decor-hedge"
+    },
+    {
+      "id": "decor-fern",
+      "name": "고사리",
+      "file": "objects/decor-fern.png",
+      "size": [
+        48,
+        48
+      ],
+      "alpha": "binary",
+      "anchor": [
+        0.5,
+        1
+      ],
+      "category": "groundcover",
+      "layer_hint": "ground-decoration",
+      "texture_key": "decor-fern"
+    },
+    {
+      "id": "decor-meadow-grass",
+      "name": "이삭풀",
+      "file": "objects/decor-meadow-grass.png",
+      "size": [
+        48,
+        48
+      ],
+      "alpha": "binary",
+      "anchor": [
+        0.5,
+        1
+      ],
+      "category": "groundcover",
+      "layer_hint": "ground-decoration",
+      "texture_key": "decor-meadow-grass"
+    },
+    {
+      "id": "decor-mushrooms",
+      "name": "빨간 버섯 무리",
+      "file": "objects/decor-mushrooms.png",
+      "size": [
+        48,
+        48
+      ],
+      "alpha": "binary",
+      "anchor": [
+        0.5,
+        1
+      ],
+      "category": "groundcover",
+      "layer_hint": "ground-decoration",
+      "texture_key": "decor-mushrooms"
+    },
+    {
+      "id": "decor-moss-rocks",
+      "name": "이끼 낀 돌",
+      "file": "objects/decor-moss-rocks.png",
+      "size": [
+        96,
+        72
+      ],
+      "alpha": "binary",
+      "anchor": [
+        0.5,
+        1
+      ],
+      "category": "object",
+      "layer_hint": "depth-sorted",
+      "texture_key": "decor-moss-rocks"
+    },
+    {
+      "id": "decor-flowers-daisy",
+      "name": "흰 데이지",
+      "file": "objects/decor-flowers-daisy.png",
+      "size": [
+        48,
+        48
+      ],
+      "alpha": "binary",
+      "anchor": [
+        0.5,
+        1
+      ],
+      "category": "flower",
+      "layer_hint": "ground-decoration",
+      "texture_key": "decor-flowers-daisy"
+    },
+    {
+      "id": "decor-flowers-buttercup",
+      "name": "노랑 미나리아재비",
+      "file": "objects/decor-flowers-buttercup.png",
+      "size": [
+        48,
+        48
+      ],
+      "alpha": "binary",
+      "anchor": [
+        0.5,
+        1
+      ],
+      "category": "flower",
+      "layer_hint": "ground-decoration",
+      "texture_key": "decor-flowers-buttercup"
+    },
+    {
+      "id": "decor-flowers-lavender",
+      "name": "보라 라벤더",
+      "file": "objects/decor-flowers-lavender.png",
+      "size": [
+        48,
+        72
+      ],
+      "alpha": "binary",
+      "anchor": [
+        0.5,
+        1
+      ],
+      "category": "flower",
+      "layer_hint": "ground-decoration",
+      "texture_key": "decor-flowers-lavender"
+    },
+    {
+      "id": "decor-flowers-cosmos",
+      "name": "분홍 코스모스",
+      "file": "objects/decor-flowers-cosmos.png",
+      "size": [
+        48,
+        72
+      ],
+      "alpha": "binary",
+      "anchor": [
+        0.5,
+        1
+      ],
+      "category": "flower",
+      "layer_hint": "ground-decoration",
+      "texture_key": "decor-flowers-cosmos"
+    },
+    {
+      "id": "decor-flowers-bluebell",
+      "name": "파란 종꽃",
+      "file": "objects/decor-flowers-bluebell.png",
+      "size": [
+        48,
+        72
+      ],
+      "alpha": "binary",
+      "anchor": [
+        0.5,
+        1
+      ],
+      "category": "flower",
+      "layer_hint": "ground-decoration",
+      "texture_key": "decor-flowers-bluebell"
+    },
+    {
+      "id": "decor-flowers-tulip",
+      "name": "코랄·분홍 튤립",
+      "file": "objects/decor-flowers-tulip.png",
+      "size": [
+        48,
+        72
+      ],
+      "alpha": "binary",
+      "anchor": [
+        0.5,
+        1
+      ],
+      "category": "flower",
+      "layer_hint": "ground-decoration",
+      "texture_key": "decor-flowers-tulip"
+    },
+    {
+      "id": "decor-planter-daisy",
+      "name": "데이지 나무 화분",
+      "file": "objects/decor-planter-daisy.png",
+      "size": [
+        96,
+        72
+      ],
+      "alpha": "binary",
+      "anchor": [
+        0.5,
+        1
+      ],
+      "category": "object",
+      "layer_hint": "depth-sorted",
+      "texture_key": "decor-planter-daisy"
+    },
+    {
+      "id": "decor-pot-lavender",
+      "name": "라벤더 토분",
+      "file": "objects/decor-pot-lavender.png",
+      "size": [
+        48,
+        72
+      ],
+      "alpha": "binary",
+      "anchor": [
+        0.5,
+        1
+      ],
+      "category": "object",
+      "layer_hint": "depth-sorted",
+      "texture_key": "decor-pot-lavender"
+    },
+    {
+      "id": "decor-flower-border",
+      "name": "돌 테두리 꽃밭",
+      "file": "objects/decor-flower-border.png",
+      "size": [
+        96,
+        72
+      ],
+      "alpha": "binary",
+      "anchor": [
+        0.5,
+        1
+      ],
+      "category": "object",
+      "layer_hint": "depth-sorted",
+      "texture_key": "decor-flower-border"
+    },
+    {
+      "id": "decor-flowerbed-round",
+      "name": "둥근 혼합 꽃밭",
+      "file": "objects/decor-flowerbed-round.png",
+      "size": [
+        96,
+        72
+      ],
+      "alpha": "binary",
+      "anchor": [
+        0.5,
+        1
+      ],
+      "category": "object",
+      "layer_hint": "depth-sorted",
+      "texture_key": "decor-flowerbed-round"
+    },
+    {
+      "id": "decor-watering-can",
+      "name": "세이지 물뿌리개",
+      "file": "objects/decor-watering-can.png",
+      "size": [
+        48,
+        48
+      ],
+      "alpha": "binary",
+      "anchor": [
+        0.5,
+        1
+      ],
+      "category": "object",
+      "layer_hint": "depth-sorted",
+      "texture_key": "decor-watering-can"
+    },
+    {
+      "id": "decor-seedling-tray",
+      "name": "작은 모종 상자",
+      "file": "objects/decor-seedling-tray.png",
+      "size": [
+        72,
+        48
+      ],
+      "alpha": "binary",
+      "anchor": [
+        0.5,
+        1
+      ],
+      "category": "object",
+      "layer_hint": "depth-sorted",
+      "texture_key": "decor-seedling-tray"
+    },
+    {
+      "id": "decor-bench",
+      "name": "나무 벤치",
+      "file": "objects/decor-bench.png",
+      "size": [
+        144,
+        96
+      ],
+      "alpha": "binary",
+      "anchor": [
+        0.5,
+        1
+      ],
+      "category": "object",
+      "layer_hint": "depth-sorted",
+      "texture_key": "decor-bench"
+    },
+    {
+      "id": "decor-mailbox",
+      "name": "빨간 우편함",
+      "file": "objects/decor-mailbox.png",
+      "size": [
+        48,
+        96
+      ],
+      "alpha": "binary",
+      "anchor": [
+        0.5,
+        1
+      ],
+      "category": "object",
+      "layer_hint": "depth-sorted",
+      "texture_key": "decor-mailbox"
+    },
+    {
+      "id": "decor-lantern",
+      "name": "나무 등불",
+      "file": "objects/decor-lantern.png",
+      "size": [
+        72,
+        144
+      ],
+      "alpha": "binary",
+      "anchor": [
+        0.5,
+        1
+      ],
+      "category": "object",
+      "layer_hint": "depth-sorted",
+      "texture_key": "decor-lantern"
+    },
+    {
+      "id": "decor-stump",
+      "name": "나이테 그루터기 의자",
+      "file": "objects/decor-stump.png",
+      "size": [
+        48,
+        48
+      ],
+      "alpha": "binary",
+      "anchor": [
+        0.5,
+        1
+      ],
+      "category": "object",
+      "layer_hint": "depth-sorted",
+      "texture_key": "decor-stump"
+    },
+    {
+      "id": "decor-well",
+      "name": "청록 지붕 우물",
+      "file": "objects/decor-well.png",
+      "size": [
+        144,
+        144
+      ],
+      "alpha": "binary",
+      "anchor": [
+        0.5,
+        1
+      ],
+      "category": "object",
+      "layer_hint": "depth-sorted",
+      "texture_key": "decor-well"
+    },
+    {
+      "id": "decor-noticeboard",
+      "name": "마을 게시판",
+      "file": "objects/decor-noticeboard.png",
+      "size": [
+        96,
+        120
+      ],
+      "alpha": "binary",
+      "anchor": [
+        0.5,
+        1
+      ],
+      "category": "object",
+      "layer_hint": "depth-sorted",
+      "texture_key": "decor-noticeboard"
+    },
+    {
+      "id": "decor-picnic",
+      "name": "체크 피크닉 돗자리",
+      "file": "objects/decor-picnic.png",
+      "size": [
+        144,
+        96
+      ],
+      "alpha": "binary",
+      "anchor": [
+        0.5,
+        1
+      ],
+      "category": "groundcover",
+      "layer_hint": "ground-decoration",
+      "texture_key": "decor-picnic"
+    },
+    {
+      "id": "decor-wheelbarrow",
+      "name": "정원 손수레",
+      "file": "objects/decor-wheelbarrow.png",
+      "size": [
+        96,
+        96
+      ],
+      "alpha": "binary",
+      "anchor": [
+        0.5,
+        1
+      ],
+      "category": "object",
+      "layer_hint": "depth-sorted",
+      "texture_key": "decor-wheelbarrow"
+    },
+    {
+      "id": "grass-daisy-sparse",
+      "name": "데이지 풀밭 · 듬성",
+      "file": "terrain/grass-daisy-sparse.png",
+      "size": [
+        32,
+        32
+      ],
+      "alpha": "opaque",
+      "anchor": [
+        0,
+        0
+      ],
+      "category": "terrain",
+      "layer_hint": "ground",
+      "texture_key": "grass-daisy-sparse"
+    },
+    {
+      "id": "grass-daisy-dense",
+      "name": "데이지 풀밭 · 풍성",
+      "file": "terrain/grass-daisy-dense.png",
+      "size": [
+        32,
+        32
+      ],
+      "alpha": "opaque",
+      "anchor": [
+        0,
+        0
+      ],
+      "category": "terrain",
+      "layer_hint": "ground",
+      "texture_key": "grass-daisy-dense"
+    },
+    {
+      "id": "grass-buttercup-sparse",
+      "name": "노랑꽃 풀밭 · 듬성",
+      "file": "terrain/grass-buttercup-sparse.png",
+      "size": [
+        32,
+        32
+      ],
+      "alpha": "opaque",
+      "anchor": [
+        0,
+        0
+      ],
+      "category": "terrain",
+      "layer_hint": "ground",
+      "texture_key": "grass-buttercup-sparse"
+    },
+    {
+      "id": "grass-buttercup-dense",
+      "name": "노랑꽃 풀밭 · 풍성",
+      "file": "terrain/grass-buttercup-dense.png",
+      "size": [
+        32,
+        32
+      ],
+      "alpha": "opaque",
+      "anchor": [
+        0,
+        0
+      ],
+      "category": "terrain",
+      "layer_hint": "ground",
+      "texture_key": "grass-buttercup-dense"
+    },
+    {
+      "id": "grass-lavender-sparse",
+      "name": "라벤더 풀밭 · 듬성",
+      "file": "terrain/grass-lavender-sparse.png",
+      "size": [
+        32,
+        32
+      ],
+      "alpha": "opaque",
+      "anchor": [
+        0,
+        0
+      ],
+      "category": "terrain",
+      "layer_hint": "ground",
+      "texture_key": "grass-lavender-sparse"
+    },
+    {
+      "id": "grass-lavender-dense",
+      "name": "라벤더 풀밭 · 풍성",
+      "file": "terrain/grass-lavender-dense.png",
+      "size": [
+        32,
+        32
+      ],
+      "alpha": "opaque",
+      "anchor": [
+        0,
+        0
+      ],
+      "category": "terrain",
+      "layer_hint": "ground",
+      "texture_key": "grass-lavender-dense"
+    },
+    {
+      "id": "grass-cosmos-sparse",
+      "name": "코스모스 풀밭 · 듬성",
+      "file": "terrain/grass-cosmos-sparse.png",
+      "size": [
+        32,
+        32
+      ],
+      "alpha": "opaque",
+      "anchor": [
+        0,
+        0
+      ],
+      "category": "terrain",
+      "layer_hint": "ground",
+      "texture_key": "grass-cosmos-sparse"
+    },
+    {
+      "id": "grass-cosmos-dense",
+      "name": "코스모스 풀밭 · 풍성",
+      "file": "terrain/grass-cosmos-dense.png",
+      "size": [
+        32,
+        32
+      ],
+      "alpha": "opaque",
+      "anchor": [
+        0,
+        0
+      ],
+      "category": "terrain",
+      "layer_hint": "ground",
+      "texture_key": "grass-cosmos-dense"
+    },
+    {
+      "id": "grass-bluebell-sparse",
+      "name": "종꽃 풀밭 · 듬성",
+      "file": "terrain/grass-bluebell-sparse.png",
+      "size": [
+        32,
+        32
+      ],
+      "alpha": "opaque",
+      "anchor": [
+        0,
+        0
+      ],
+      "category": "terrain",
+      "layer_hint": "ground",
+      "texture_key": "grass-bluebell-sparse"
+    },
+    {
+      "id": "grass-bluebell-dense",
+      "name": "종꽃 풀밭 · 풍성",
+      "file": "terrain/grass-bluebell-dense.png",
+      "size": [
+        32,
+        32
+      ],
+      "alpha": "opaque",
+      "anchor": [
+        0,
+        0
+      ],
+      "category": "terrain",
+      "layer_hint": "ground",
+      "texture_key": "grass-bluebell-dense"
+    },
+    {
+      "id": "grass-tulip-sparse",
+      "name": "튤립 풀밭 · 듬성",
+      "file": "terrain/grass-tulip-sparse.png",
+      "size": [
+        32,
+        32
+      ],
+      "alpha": "opaque",
+      "anchor": [
+        0,
+        0
+      ],
+      "category": "terrain",
+      "layer_hint": "ground",
+      "texture_key": "grass-tulip-sparse"
+    },
+    {
+      "id": "grass-tulip-dense",
+      "name": "튤립 풀밭 · 풍성",
+      "file": "terrain/grass-tulip-dense.png",
+      "size": [
+        32,
+        32
+      ],
+      "alpha": "opaque",
+      "anchor": [
+        0,
+        0
+      ],
+      "category": "terrain",
+      "layer_hint": "ground",
+      "texture_key": "grass-tulip-dense"
+    },
+    {
+      "id": "grass-flowers-mixed-01",
+      "name": "흰색·노랑·분홍 들꽃",
+      "file": "terrain/grass-flowers-mixed-01.png",
+      "size": [
+        32,
+        32
+      ],
+      "alpha": "opaque",
+      "anchor": [
+        0,
+        0
+      ],
+      "category": "terrain",
+      "layer_hint": "ground",
+      "texture_key": "grass-flowers-mixed-01"
+    },
+    {
+      "id": "grass-flowers-mixed-02",
+      "name": "보라·파랑 파스텔 들꽃",
+      "file": "terrain/grass-flowers-mixed-02.png",
+      "size": [
+        32,
+        32
+      ],
+      "alpha": "opaque",
+      "anchor": [
+        0,
+        0
+      ],
+      "category": "terrain",
+      "layer_hint": "ground",
+      "texture_key": "grass-flowers-mixed-02"
+    },
+    {
+      "id": "grass-fern",
+      "name": "고사리와 잔풀",
+      "file": "terrain/grass-fern.png",
+      "size": [
+        32,
+        32
+      ],
+      "alpha": "opaque",
+      "anchor": [
+        0,
+        0
+      ],
+      "category": "terrain",
+      "layer_hint": "ground",
+      "texture_key": "grass-fern"
+    },
+    {
+      "id": "grass-mushrooms",
+      "name": "작은 버섯 풀밭",
+      "file": "terrain/grass-mushrooms.png",
+      "size": [
+        32,
+        32
+      ],
+      "alpha": "opaque",
+      "anchor": [
+        0,
+        0
+      ],
+      "category": "terrain",
+      "layer_hint": "ground",
+      "texture_key": "grass-mushrooms"
+    }
+  ],
+  "documentation_repo_path": "design/village/decor/README.md"
+}

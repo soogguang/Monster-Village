@@ -1,0 +1,70 @@
+{
+  "residents": [
+    {
+      "id": "sprout-mandu",
+      "name": "만두",
+      "kind": "sprout",
+      "rare": false,
+      "unlock": null,
+      "image": "sprout-mandu.png",
+      "sleepImage": "sprout-mandu-sleep.png",
+      "personality": "음식을 먹으면 몸통 양옆의 둥근 볼주머니에 차곡차곡 저장해요.",
+      "motif": "만두"
+    },
+    {
+      "id": "sprout-puppy",
+      "name": "강아지",
+      "kind": "sprout",
+      "rare": false,
+      "unlock": null,
+      "image": "sprout-puppy.png",
+      "sleepImage": "sprout-puppy-sleep.png",
+      "personality": "땅파기를 좋아해요.",
+      "motif": "강아지"
+    },
+    {
+      "id": "sprout-cat",
+      "name": "솜털고양이",
+      "kind": "sprout",
+      "rare": false,
+      "unlock": null,
+      "image": "sprout-cat.png",
+      "sleepImage": "sprout-cat-sleep.png",
+      "personality": "민들레처럼 쉬는 걸 좋아해요.",
+      "motif": "고양이"
+    },
+    {
+      "id": "sprout-rabbit",
+      "name": "펠트토끼",
+      "kind": "sprout",
+      "rare": false,
+      "unlock": null,
+      "image": "sprout-rabbit.png",
+      "sleepImage": "sprout-rabbit-sleep.png",
+      "personality": "긴 펠트 귀를 흔들며 폴짝폴짝 뛰는 걸 좋아해요.",
+      "motif": "펠트 토끼"
+    },
+    {
+      "id": "sleepy-leaf-bear",
+      "name": "풀잎곰",
+      "kind": "sleepy",
+      "rare": false,
+      "unlock": null,
+      "image": "sleepy-leaf-bear.png",
+      "sleepImage": "sleepy-leaf-bear-leaf-blanket.png",
+      "personality": "포근한 자리를 좋아해서, 쉬는 시간이면 잎을 모아 자기만의 이불을 만드는 친구",
+      "motif": "풀잎·낙엽 이불"
+    },
+    {
+      "id": "sprout-witch-cat",
+      "name": "별마녀냥",
+      "kind": "sprout",
+      "rare": true,
+      "unlock": "rest-and-return",
+      "image": "sprout-witch-cat.png",
+      "sleepImage": "sprout-witch-cat-sit.png",
+      "personality": "말은 적지만 친구를 기쁘게 해주고 싶어서, 슬쩍 다가가 꽃을 피워놓고 가는 고양이",
+      "motif": "마녀 모자·별 마법봉·계절 꽃"
+    }
+  ]
+}

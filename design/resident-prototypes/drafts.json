@@ -1,0 +1,37 @@
+{
+  "status": "draft-not-registered",
+  "frame": [
+    64,
+    72
+  ],
+  "residents": [
+    {
+      "id": "star-hedgehog",
+      "name": "별가시 고슴도치",
+      "proposedKind": "희귀 새싹",
+      "base": "png/star-hedgehog-base.png",
+      "special": "png/star-hedgehog-special.png"
+    },
+    {
+      "id": "blanket-turtle",
+      "name": "이불등 거북",
+      "proposedKind": "꾸벅이",
+      "base": "png/blanket-turtle-base.png",
+      "special": "png/blanket-turtle-special.png"
+    },
+    {
+      "id": "teacup-otter",
+      "name": "찻잔 수달",
+      "proposedKind": "꾸벅이",
+      "base": "png/teacup-otter-base.png",
+      "special": "png/teacup-otter-special.png"
+    },
+    {
+      "id": "doodle-raccoon",
+      "name": "낙서 너구리",
+      "proposedKind": "말썽",
+      "base": "png/doodle-raccoon-base.png",
+      "special": "png/doodle-raccoon-special.png"
+    }
+  ]
+}
