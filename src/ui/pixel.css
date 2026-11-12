@@ -82,7 +82,7 @@ button, input, select { font: inherit; color: inherit; }
 /* ---------- 상태 상자 (왼쪽 위) ---------- */
 #status {
   position: fixed; top: 16px; left: 16px; width: 236px; padding: 10px 12px; z-index: 5;
-  display: grid; gap: 6px;
+  display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px;
 }
 #status .clock { display: flex; justify-content: space-between; align-items: baseline; }
 #status .clock .time { font-family: var(--font-body); font-size: 24px; line-height: 24px; }
@@ -94,7 +94,9 @@ button, input, select { font: inherit; color: inherit; }
 #status .presence.focusing .dot { background: #f08a3a; animation: blink 1s steps(2) infinite; }
 #status .presence .timer { font-family: var(--font-title); font-size: 15px; }
 #status .focus-row { display: flex; gap: 6px; }
-#status .focus-row select { flex: 1; }
+/* 할 일 이름이 길어도 상자 밖으로 밀려나지 않게: 고르는 칸은 남은 폭만 쓰고 넘치면 …로 줄여요. (펼친 목록에는 전체 이름이 보여요) */
+#status .focus-row select { flex: 1 1 0; min-width: 0; width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#status .focus-row button { flex: none; }
 @keyframes blink { 50% { opacity: 0.3; } }
 
 /* ---------- 아래 버튼 줄 ---------- */
