@@ -3,10 +3,12 @@
 // - 방 멤버와 그들의 마당(게임 데이터) 구경
 // - 나무에 걸린 공동 할 일 (room_tasks 표, 실시간 반영)
 // - 접속·집중 상태 (실시간 presence)와 응원의 종 (실시간 broadcast): 저장하지 않아요
+// - 방 마을 안에서 걷는 모습 (실시간 broadcast, 2026-11-16): 마을에 있는 친구 캐릭터가 보여요. 저장하지 않아요
 //
 // 화면 코드는 RoomBackend 인터페이스만 알아요. 진짜 구현은 Supabase, 개발용 가짜 구현은 fakeRooms.ts예요.
 
 import type { RealtimeChannel, SupabaseClient } from '@supabase/supabase-js';
+import type { Facing } from '../avatars';
 import type { GameState } from '../store';
 import type { SlotAssignment } from '../world/layout';
 
@@ -34,17 +36,47 @@ export interface RoomTask {
   createdAt: number;
 }
 
+/** 내 모든 방의 나무 할 일 (내 달력에 보여줘요) */
+export interface TreeTask extends RoomTask {
+  roomId: string;
+  roomName: string;
+}
+
 export interface Presence {
   userId: string;
   nickname: string;
   /** 지금 집중 중인 할 일 제목. 집중 중이 아니면 null */
   focusingOn: string | null;
+  /** 이 방 나무의 공동 할 일에 집중 중이면 그 할 일 id */
+  treeTaskId?: string | null;
+  /** 방 마을에 와 있으면 true (내 집에 있으면 마을에 캐릭터가 보이지 않아요) */
+  inVillage?: boolean;
+  /** 플레이어 외형 (마을에서 친구 캐릭터를 그릴 때 써요) */
+  avatarId?: string;
+}
+
+/** 방 마을 안에서 내 캐릭터의 위치 (월드 좌표, 발밑 기준) */
+export interface MoveState {
+  userId: string;
+  x: number;
+  y: number;
+  facing: Facing;
+  moving: boolean;
+}
+
+/** 내 상태를 방 친구들에게 알릴 때 */
+export interface MyPresence {
+  focusingOn: string | null;
+  treeTaskId: string | null;
+  inVillage: boolean;
+  avatarId: string;
 }
 
 export interface RoomEvents {
   onTasks(tasks: RoomTask[]): void;
   onPresence(online: Presence[]): void;
   onBell(from: string, to: string): void;
+  onMove(move: MoveState): void;
 }
 
 export interface RoomBackend {
@@ -56,12 +88,17 @@ export interface RoomBackend {
   loadMembers(roomId: string): Promise<RoomMember[]>;
   /** 방의 마당 자리 배정 (나간 멤버의 자리도 포함). 모든 멤버가 같은 배정을 봐요 */
   loadSlots(roomId: string): Promise<SlotAssignment[]>;
+  /** 내가 들어간 여러 방의 나무 할 일을 한 번에 (내 달력용) */
+  loadTreeTasks(rooms: Room[]): Promise<TreeTask[]>;
   addTask(roomId: string, title: string, dueAt: number | null): Promise<void>;
   completeTask(taskId: string): Promise<void>;
   deleteTask(taskId: string): Promise<void>;
   /** 방에 들어가서 실시간으로 이어져요. 반환하는 함수를 부르면 연결을 끊어요. */
   enter(roomId: string, events: RoomEvents): Promise<() => void>;
-  setFocus(focusingOn: string | null): void;
+  /** 내 집중·위치(마을/집)·외형을 방 친구들에게 알려요. 바뀐 게 없으면 보내지 않아요 */
+  setPresence(me: MyPresence): void;
+  /** 마을 안에서 움직인 위치를 보내요 (저장하지 않아요) */
+  sendMove(move: Omit<MoveState, 'userId'>): void;
   /** 내 이름(me.nickname)이 바뀌었을 때 접속 상태를 다시 보내요 */
   refreshMe(): void;
   ringBell(toUserId: string): void;
@@ -85,7 +122,7 @@ const toTask = (r: TaskRow): RoomTask => ({
 
 export class SupabaseRooms implements RoomBackend {
   private channel: RealtimeChannel | null = null;
-  private focusingOn: string | null = null;
+  private presence: MyPresence = { focusingOn: null, treeTaskId: null, inVillage: false, avatarId: '' };
 
   constructor(
     private client: SupabaseClient,
@@ -150,6 +187,18 @@ export class SupabaseRooms implements RoomBackend {
     return (data as TaskRow[]).map(toTask);
   }
 
+  async loadTreeTasks(rooms: Room[]): Promise<TreeTask[]> {
+    if (!rooms.length) return [];
+    const { data, error } = await this.client
+      .from('room_tasks')
+      .select('id, room_id, title, due_at, created_by, done_by, done_at, created_at')
+      .in('room_id', rooms.map((r) => r.id));
+    if (error) throw error;
+    return (data as (TaskRow & { room_id: string })[]).map((r) => ({
+      ...toTask(r), roomId: r.room_id, roomName: rooms.find((x) => x.id === r.room_id)?.name ?? '방',
+    }));
+  }
+
   async addTask(roomId: string, title: string, dueAt: number | null): Promise<void> {
     const { error } = await this.client.from('room_tasks').insert({
       room_id: roomId,
@@ -182,6 +231,7 @@ export class SupabaseRooms implements RoomBackend {
         events.onPresence(Object.values(state).map((list) => list[0]).filter(Boolean));
       })
       .on('broadcast', { event: 'bell' }, ({ payload }) => events.onBell(payload.from, payload.to))
+      .on('broadcast', { event: 'move' }, ({ payload }) => events.onMove(payload as MoveState))
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') void this.track(channel);
       });
@@ -192,10 +242,14 @@ export class SupabaseRooms implements RoomBackend {
     };
   }
 
-  setFocus(focusingOn: string | null): void {
-    if (focusingOn === this.focusingOn) return;
-    this.focusingOn = focusingOn;
+  setPresence(me: MyPresence): void {
+    if (JSON.stringify(me) === JSON.stringify(this.presence)) return;
+    this.presence = { ...me };
     if (this.channel) void this.track(this.channel);
+  }
+
+  sendMove(move: Omit<MoveState, 'userId'>): void {
+    void this.channel?.send({ type: 'broadcast', event: 'move', payload: { ...move, userId: this.me.id } });
   }
 
   refreshMe(): void {
@@ -207,7 +261,7 @@ export class SupabaseRooms implements RoomBackend {
   }
 
   private track(channel: RealtimeChannel) {
-    const presence: Presence = { userId: this.me.id, nickname: this.me.nickname, focusingOn: this.focusingOn };
+    const presence: Presence = { userId: this.me.id, nickname: this.me.nickname, ...this.presence };
     return channel.track(presence);
   }
 }
@@ -222,6 +276,10 @@ export interface RoomViewState {
   slots: SlotAssignment[];
   tasks: RoomTask[];
   online: Presence[];
+  /** tasks가 어느 방의 것인지 (방을 바꾼 직후 아직 안 불러왔으면 null) */
+  tasksRoomId: string | null;
+  /** 내가 들어간 모든 방의 나무 할 일 (내 달력에 🌳로 보여줘요) */
+  treeTasks: TreeTask[];
   /** 방 마을에 들어가 있으면 true, 내 집에 있으면 false. 접속하면 항상 내 집에서 시작해요 */
   inVillage: boolean;
 }
@@ -230,7 +288,10 @@ const ACTIVE_KEY = 'monster-village:active-room';
 
 /** 방 상태를 한곳에 모아서, 방 창과 마을 화면이 같은 내용을 보게 해요. */
 export class RoomView {
-  state: RoomViewState = { backend: null, rooms: [], active: null, members: [], slots: [], tasks: [], online: [], inVillage: false };
+  state: RoomViewState = { backend: null, rooms: [], active: null, members: [], slots: [], tasks: [], online: [], tasksRoomId: null, treeTasks: [], inVillage: false };
+  /** 마을 안 친구들의 마지막 위치. 자주 바뀌어서 state에 넣지 않고 따로 알려요 */
+  moves = new Map<string, MoveState>();
+  private moveListeners = new Set<(m: MoveState) => void>();
   private listeners = new Set<(s: RoomViewState) => void>();
   private leaveChannel: (() => void) | null = null;
   /** 누가 나에게 종을 쳤을 때 */
@@ -241,18 +302,38 @@ export class RoomView {
     return () => this.listeners.delete(fn);
   }
 
-  async connect(backend: RoomBackend): Promise<void> {
+  /**
+   * 방 연결을 시작해요. 접속하면 내 집에서 시작하지만,
+   * 나무 할 일에 집중하던 중에 새로고침했으면(resumeVillageOf) 그 방 마을로 바로 돌아가서 집중을 이어가요.
+   */
+  async connect(backend: RoomBackend, resumeVillageOf: string | null = null): Promise<void> {
     this.patch({ backend });
     await this.refreshRooms();
     let saved: string | null = null;
     try { saved = window.localStorage.getItem(ACTIVE_KEY); } catch { /* 무시 */ }
-    const room = this.state.rooms.find((r) => r.id === saved) ?? this.state.rooms[0];
+    const resume = this.state.rooms.find((r) => r.id === resumeVillageOf);
+    const room = resume ?? this.state.rooms.find((r) => r.id === saved) ?? this.state.rooms[0];
     if (room) await this.open(room);
+    if (resume) this.enterVillage();
   }
 
   async refreshRooms(): Promise<void> {
     if (!this.state.backend) return;
     this.patch({ rooms: await this.state.backend.listRooms() });
+    void this.refreshTreeTasks();
+  }
+
+  /** 내 모든 방의 나무 할 일을 다시 불러와요 (내 달력용) */
+  async refreshTreeTasks(): Promise<void> {
+    const backend = this.state.backend;
+    if (!backend) return;
+    try { this.patch({ treeTasks: await backend.loadTreeTasks(this.state.rooms) }); }
+    catch (err) { console.warn('[방] 나무 할 일을 불러오지 못했어요.', err); }
+  }
+
+  subscribeMoves(fn: (m: MoveState) => void): () => void {
+    this.moveListeners.add(fn);
+    return () => this.moveListeners.delete(fn);
   }
 
   async open(room: Room): Promise<void> {
@@ -260,13 +341,23 @@ export class RoomView {
     if (!backend) return;
     this.leaveChannel?.();
     try { window.localStorage.setItem(ACTIVE_KEY, room.id); } catch { /* 무시 */ }
-    this.patch({ active: room, members: [], slots: [], tasks: [], online: [] });
+    this.moves.clear();
+    this.patch({ active: room, members: [], slots: [], tasks: [], online: [], tasksRoomId: null });
     const [members, slots] = await Promise.all([backend.loadMembers(room.id), backend.loadSlots(room.id)]);
     this.patch({ members, slots });
     this.leaveChannel = await backend.enter(room.id, {
-      onTasks: (tasks) => this.patch({ tasks }),
+      onTasks: (tasks) => {
+        // 내 달력의 나무 할 일 중 이 방 것도 같이 바꿔요.
+        const treeTasks = [...this.state.treeTasks.filter((t) => t.roomId !== room.id), ...tasks.map((t) => ({ ...t, roomId: room.id, roomName: room.name }))];
+        this.patch({ tasks, tasksRoomId: room.id, treeTasks });
+      },
       onPresence: (online) => { this.patch({ online }); this.refreshMembersSoon(room.id); },
       onBell: (from, to) => { if (to === backend.me.id) this.onBellForMe(from); },
+      onMove: (move) => {
+        if (move.userId === backend.me.id) return;
+        this.moves.set(move.userId, move);
+        for (const fn of this.moveListeners) fn(move);
+      },
     });
   }
 
@@ -300,7 +391,8 @@ export class RoomView {
     this.leaveChannel?.();
     this.leaveChannel = null;
     await backend.leaveRoom(active.id);
-    this.patch({ active: null, members: [], slots: [], tasks: [], online: [], inVillage: false });
+    this.moves.clear();
+    this.patch({ active: null, members: [], slots: [], tasks: [], online: [], tasksRoomId: null, inVillage: false });
     await this.refreshRooms();
     if (this.state.rooms[0]) await this.open(this.state.rooms[0]);
   }

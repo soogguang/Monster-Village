@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CatalogEntry } from './rules/catalog';
-import { GameStore, normalizeState, type GameState, type Storage } from './store';
+import { GameStore, focusTitle, normalizeState, type GameState, type Storage } from './store';
 
 const MINUTE = 60 * 1000;
 const DAY = 24 * 60 * MINUTE;
@@ -347,5 +347,30 @@ describe('GameStore', () => {
     storage.saved = { residents: [r('b', 2), r('a', 1), { ...r('c', 3), speciesId: 'dog' }] } as unknown as GameState;
     const store = new GameStore(storage);
     expect(store.get().residents.map((x) => [x.id, x.hearts])).toEqual([['a', 2], ['c', 1]]);
+  });
+});
+
+describe('나무(방의 공동 할 일) 집중', () => {
+  const tree = { roomId: 'r1', roomName: '캡스톤 팀', title: '발표 자료' };
+
+  it('나무 할 일에 집중한 시간은 내 집중 기록에 그대로 들어가요 (제목과 방도 같이)', () => {
+    const { store, advance, start } = setup();
+    store.startTreeFocus('rt1', tree);
+    expect(focusTitle(store.get())).toBe('🌳 발표 자료');
+    advance(50 * MINUTE);
+    const unlocks = store.stopFocus();
+    expect(store.get().sessions).toEqual([{ taskId: 'tree:rt1', startedAt: start, endedAt: start + 50 * MINUTE, tree }]);
+    expect(unlocks).toContain('deep-focus'); // 푹 몰입하기도 그대로 판정해요
+  });
+
+  it('내 할 일에 집중 중이었으면 그 집중을 끝내고 나무 할 일로 바꿔요', () => {
+    const { store, advance, start } = setup();
+    const task = store.addTask('보고서', start, start + DAY);
+    store.startFocus(task.id);
+    advance(5 * MINUTE);
+    store.startTreeFocus('rt1', tree);
+    expect(store.get().sessions.map((x) => x.taskId)).toEqual([task.id]);
+    expect(store.get().focus?.tree).toEqual(tree);
+    expect(store.get().tasks[0].focusMinutes).toBe(5);
   });
 });

@@ -2,12 +2,12 @@
 // 창 안의 목록은 저장소가 바뀔 때마다 다시 그리고, 입력 중인 폼은 건드리지 않아요.
 
 import { FRIENDSHIP, RULES } from '../config';
-import { roomView, type RoomViewState } from '../net/rooms';
+import { roomView, type RoomViewState, type TreeTask } from '../net/rooms';
 import { friendshipStage } from '../rules/friendship';
 import { HABIT_IDS, focusByTask, focusTotal, localDayRange } from '../rules/habits';
 import { TASK_COLORS, doughStage, isStuckGrumpy, isTaskColor, progressRatio, type CalendarStyle, type Task, type TaskColor } from '../rules/task';
 import { TASK_COLOR_STYLE, colorOf, layoutWeek } from './calendarLayout';
-import type { GameState, GameStore, Resident } from '../store';
+import { treeFocusId, type GameState, type GameStore, type Resident } from '../store';
 import {
   DAY, HABIT_TEXT, RESIDENT_TEXT, STAGE_TEXT, WEEKDAYS, heartsText,
   defaultStartForDay, escapeHtml, formatDate, formatDuration, formatDurationShort, fromLocalInput, startOfDay, toLocalInput, toTimeInput, todayAt,
@@ -20,6 +20,8 @@ export interface WindowContext {
   /** 할 일을 끝냈을 때 알림 문구 */
   completeTask(taskId: string): void;
   toggleFocus(taskId: string): void;
+  /** 방 나무의 공동 할 일 집중 시작·끝 (지금 보고 있는 방 마을에 있을 때만) */
+  toggleTreeFocus(roomTaskId: string): void;
   openWindow(id: string): void;
   closeWindow(): void;
   /** 광장 사물에서 열면 해당 내용만 보여줘요. */
@@ -341,19 +343,20 @@ export const calendarWindow: GameWindow = {
 
     const render = (state: GameState) => {
       body.querySelector('.title')!.textContent = `${month.getFullYear()}년 ${month.getMonth() + 1}월`;
+      // 내 할 일 + 내가 들어간 방들의 나무 할 일(마감이 있는 것만, 🌳 나뭇잎 칸)
+      const calTasks: CalTask[] = [...state.tasks, ...treeCalendarTasks(roomView.state.treeTasks)];
       const first = new Date(month);
       first.setDate(1 - first.getDay());
       // 맥 캘린더처럼: 기간 할 일은 칸을 가로지르는 막대(주마다 같은 줄), 마감일만 할 일은 "● 제목 시각" 한 줄
       let html = `<div class="cal-weekdays">${WEEKDAYS.map((w) => `<div class="wd">${w}</div>`).join('')}</div>`;
       for (let week = 0; week < 6; week++) {
         const days = Array.from({ length: 7 }, (_, i) => { const d = new Date(first); d.setDate(first.getDate() + week * 7 + i); return d; });
-        const layout = layoutWeek(state.tasks, days.map((d) => d.getTime()));
+        const layout = layoutWeek(calTasks, days.map((d) => d.getTime()));
         const cells = days.map((day, col) => {
           const dayStart = day.getTime();
           const cell = layout.cells[col];
           // 줄마다: 막대가 지나가는 줄은 비워 두고(막대는 위에 겹쳐 그려요), 나머지 줄에 한 줄 할 일
-          const rows = cell.rows.map((t) => t === null ? '<div class="cal-slot"></div>'
-            : `<div class="cal-slot cal-item ${t.completedAt !== undefined ? 'done' : ''}" title="${escapeHtml(t.title)}">${colorDot(t)}<span class="t">${escapeHtml(t.title)}</span>${dueTime(t.dueAt)}</div>`).join('');
+          const rows = cell.rows.map((t) => t === null ? '<div class="cal-slot"></div>' : calendarItem(t as CalTask)).join('');
           const more = cell.hidden ? `<div class="cal-more">+${cell.hidden}개</div>` : '';
           const cls = ['cal-day', day.getMonth() !== month.getMonth() ? 'other' : '', dayStart === today ? 'today' : '', dayStart === selected ? 'selected' : '', inDrag(dayStart) ? 'dragging' : ''].join(' ');
           // 그날 집중한 시간 (1분 이상일 때만)
@@ -380,12 +383,18 @@ export const calendarWindow: GameWindow = {
       body.querySelector('.day-focus')!.innerHTML = total
         ? `<div class="slot day-focus-box"><strong>🔥 이날 집중 ${formatDuration(total)}</strong>${byTask.map(([id, ms]) => {
             const t = state.tasks.find((x) => x.id === id);
-            return `<div class="meta">${t ? colorDot(t) : ''}${escapeHtml(t?.title ?? '지운 할 일')} · ${formatDuration(ms)}</div>`;
+            const tree = state.sessions.find((x) => x.taskId === id)?.tree ?? (state.focus?.taskId === id ? state.focus.tree : undefined);
+            const name = tree ? `🌳 ${tree.title}` : t?.title ?? '지운 할 일';
+            return `<div class="meta">${t ? colorDot(t) : ''}${escapeHtml(name)} · ${formatDuration(ms)}</div>`;
           }).join('')}</div>`
         : '';
-      const items = tasksOnDay(state.tasks, selected);
+      const items = tasksOnDay(calTasks, selected) as { task: CalTask; isDue: boolean }[];
       body.querySelector('.day-list')!.innerHTML = items.length
-        ? items.map(({ task, isDue }) => `<div class="slot"><div class="row"><span class="grow">${task.completedAt !== undefined ? '✅ ' : ''}${colorDot(task)}${escapeHtml(task.title)}</span>${isDue ? '<span class="badge warn">마감</span>' : ''}</div><div class="meta">${formatDate(task.startAt)} → ${formatDate(task.dueAt)}</div><div class="actions"><button class="px-btn small ghost" data-act="delete-task" data-id="${task.id}">지우기</button></div></div>`).join('')
+        ? items.map(({ task, isDue }) => task.tree
+          // 나무 할 일: 어느 방 나무인지 보여주고, 지우기는 나무에서만 해요
+          ? `<div class="slot tree-task ${task.completedAt !== undefined ? 'done-task' : ''}"><div class="row"><span class="grow">${task.completedAt !== undefined ? '✅' : '🌳'} ${escapeHtml(task.title)}</span><span class="badge">${escapeHtml(task.tree.roomName)} 나무</span></div>
+              <div class="meta">마감 ${formatDate(task.dueAt)}${task.completedAt !== undefined ? ` · ${formatDate(task.completedAt)}에 끝냈어요` : ' · 그 방 마을의 수호나무에서 같이 집중할 수 있어요'}</div></div>`
+          : `<div class="slot"><div class="row"><span class="grow">${task.completedAt !== undefined ? '✅ ' : ''}${colorDot(task)}${escapeHtml(task.title)}</span>${isDue ? '<span class="badge warn">마감</span>' : ''}</div><div class="meta">${formatDate(task.startAt)} → ${formatDate(task.dueAt)}</div><div class="actions"><button class="px-btn small ghost" data-act="delete-task" data-id="${task.id}">지우기</button></div></div>`).join('')
         : '<div class="empty">이 날 표시된 할 일이 없어요.</div>';
     };
 
@@ -459,9 +468,13 @@ export const calendarWindow: GameWindow = {
 
     render(ctx.store.get());
     const unsubscribe = ctx.store.subscribe((s) => render(s));
+    // 방 나무 할 일이 바뀌면 다시 그려요. 창을 열 때 내 모든 방의 나무 할 일을 새로 불러와요.
+    let lastTree = roomView.state.treeTasks;
+    const offRoom = roomView.subscribe((rs) => { if (rs.treeTasks !== lastTree && !drag) { lastTree = rs.treeTasks; render(ctx.store.get()); } });
+    void roomView.refreshTreeTasks();
     // 집중 중이면 오늘 집중 시간이 늘어나니까 1분마다 다시 그려요. (끄는 중에는 그리지 않아요)
     const tick = window.setInterval(() => { if (!drag && ctx.store.get().focus) render(ctx.store.get()); }, 60 * 1000);
-    return () => { unsubscribe(); window.clearInterval(tick); window.removeEventListener('pointerup', finishDrag); };
+    return () => { unsubscribe(); offRoom(); window.clearInterval(tick); window.removeEventListener('pointerup', finishDrag); };
   },
 };
 
@@ -480,6 +493,26 @@ function tasksOnDay(tasks: Task[], dayStart: number): { task: Task; isDue: boole
     .map((task) => ({ task, isDue: inDay(task.dueAt), isStart: inDay(task.startAt) }))
     // 기간 막대가 날마다 같은 줄에 이어져 보이도록 기간 할 일을 항상 위에 둬요.
     .sort((a, b) => rangeFirst(a.task) - rangeFirst(b.task) || a.task.startAt - b.task.startAt || a.task.dueAt - b.task.dueAt);
+}
+
+/** 달력에 그리는 할 일: 내 할 일, 또는 방 나무의 공동 할 일(tree) */
+type CalTask = Task & { tree?: { roomName: string } };
+
+/** 방 나무 할 일을 달력용 할 일 모양으로 바꿔요. 마감이 없는 일은 달력에 나오지 않아요 */
+function treeCalendarTasks(list: TreeTask[]): CalTask[] {
+  return list.filter((t) => t.dueAt !== null).map((t) => ({
+    id: treeFocusId(t.id), title: t.title, startAt: t.createdAt, dueAt: t.dueAt!, focusMinutes: 0, dueExtensions: 0,
+    calendarStyle: 'due', color: 'leaf', completedAt: t.doneAt ?? undefined, tree: { roomName: t.roomName },
+  }));
+}
+
+/** 달력 칸의 한 줄. 나무 할 일은 🌳 나뭇잎 칸(초록 바탕 + 나무결 테두리)이에요 */
+function calendarItem(t: CalTask): string {
+  const done = t.completedAt !== undefined ? 'done' : '';
+  if (t.tree) {
+    return `<div class="cal-slot cal-item cal-tree ${done}" title="${escapeHtml(`🌳 ${t.tree.roomName} 나무 · ${t.title}`)}"><span class="leaf">🌳</span><span class="t">${escapeHtml(t.title)}</span>${dueTime(t.dueAt)}</div>`;
+  }
+  return `<div class="cal-slot cal-item ${done}" title="${escapeHtml(t.title)}">${colorDot(t)}<span class="t">${escapeHtml(t.title)}</span>${dueTime(t.dueAt)}</div>`;
 }
 
 /** 할 일 색 동그라미 (끝낸 일은 회색) */
@@ -619,16 +652,29 @@ export const focusWindow: GameWindow = {
       const state = ctx.store.get();
       const active = state.tasks.filter((t) => t.completedAt === undefined);
       const room = roomView.state.active;
+      // 방 마을에 있으면 나무의 공동 할 일에도 집중할 수 있어요.
+      const trees = roomView.state.inVillage ? roomView.state.tasks.filter((t) => t.doneAt === null) : [];
+      const treeRows = trees.map((t) => {
+        const on = state.focus?.taskId === treeFocusId(t.id);
+        return `<div class="slot ${on ? 'focusing' : ''}"><div class="row"><strong class="grow">🌳 ${escapeHtml(t.title)}</strong>
+          <button class="px-btn small ${on ? 'red' : 'green'}" data-tree-id="${escapeHtml(t.id)}">${on ? '집중 끝내기' : '집중 시작'}</button></div></div>`;
+      }).join('');
       body.innerHTML = `<p class="muted">${room ? `${escapeHtml(room.name)}에서 ${roomView.focusingCount()}명이 함께 집중하고 있어요.` : '내 할 일에 집중하며 잠시 머물러요.'}</p>
         ${active.length ? active.map((task) => `<div class="slot ${state.focus?.taskId === task.id ? 'focusing' : ''}"><div class="row">
           <strong class="grow">${escapeHtml(task.title)}</strong>
           <button class="px-btn small ${state.focus?.taskId === task.id ? 'red' : 'green'}" data-focus-id="${escapeHtml(task.id)}">${state.focus?.taskId === task.id ? '집중 끝내기' : '집중 시작'}</button>
-        </div></div>`).join('') : '<div class="empty">집중할 할 일을 먼저 등록해 주세요.</div><button class="px-btn green" data-act="add-task">할 일 등록하러 가기</button>'}`;
+        </div></div>`).join('') : trees.length ? '' : '<div class="empty">집중할 할 일을 먼저 등록해 주세요.</div><button class="px-btn green" data-act="add-task">할 일 등록하러 가기</button>'}
+        ${treeRows ? `<h3>🌳 나무 · 공동 할 일</h3>${treeRows}` : ''}`;
     };
     body.addEventListener('click', (e) => {
-      const button = (e.target as HTMLElement).closest<HTMLElement>('[data-focus-id],[data-act]');
+      const button = (e.target as HTMLElement).closest<HTMLElement>('[data-focus-id],[data-tree-id],[data-act]');
       if (!button) return;
       if (button.dataset.act === 'add-task') { ctx.openWindow('tasks'); return; }
+      if (button.dataset.treeId) {
+        try { ctx.toggleTreeFocus(button.dataset.treeId); ctx.closeWindow(); }
+        catch (err) { ctx.toast((err as Error).message); }
+        return;
+      }
       if (button.dataset.focusId) {
         try { ctx.toggleFocus(button.dataset.focusId); ctx.closeWindow(); }
         catch (err) { ctx.toast((err as Error).message); }
@@ -686,13 +732,24 @@ export const roomsWindow: GameWindow = {
       }).join('');
       const tasks = [...rs.tasks].sort((a, b) => Number(a.doneAt !== null) - Number(b.doneAt !== null) || (a.dueAt ?? Infinity) - (b.dueAt ?? Infinity));
       const nameOf = (id: string | null) => rs.members.find((m) => m.userId === id)?.nickname ?? '누군가';
+      const myFocus = ctx.store.get().focus?.taskId;
       const tree = tasks.length
-        ? tasks.map((t) => `<div class="slot ${t.doneAt ? 'done-task' : ''}"><div class="row">
+        ? tasks.map((t) => {
+          // 이 나무 할 일에 지금 집중 중인 사람 (나 포함)
+          const focusing = rs.online.filter((p) => p.treeTaskId === t.id).map((p) => (p.userId === me ? '나' : p.nickname));
+          const mine = myFocus === treeFocusId(t.id);
+          const focusButton = t.doneAt ? ''
+            : mine ? `<button class="px-btn small red" data-act="tree-focus" data-id="${t.id}">집중 끝내기</button>`
+              : rs.inVillage ? `<button class="px-btn small green" data-act="tree-focus" data-id="${t.id}">🔥 집중하기</button>`
+                : '<span class="muted">방 마을의 수호나무에서 집중할 수 있어요</span>';
+          return `<div class="slot ${t.doneAt ? 'done-task' : ''} ${mine ? 'focusing' : ''}"><div class="row">
             <span class="grow">${t.doneAt ? '✅' : '🍃'} ${escapeHtml(t.title)}</span>
             ${t.dueAt ? `<span class="badge ${!t.doneAt && t.dueAt < Date.now() ? 'warn' : ''}">마감 ${formatDate(t.dueAt)}</span>` : ''}</div>
             <div class="meta">${escapeHtml(nameOf(t.createdBy))}님이 걸었어요${t.doneAt ? ` · ${escapeHtml(nameOf(t.doneBy))}님이 ${formatDate(t.doneAt)}에 끝냈어요` : ''}</div>
-            <div class="actions">${t.doneAt ? '' : `<button class="px-btn small green" data-act="room-done" data-id="${t.id}">끝냈어요!</button>`}
-            ${t.createdBy === me ? `<button class="px-btn small ghost" data-act="room-delete" data-id="${t.id}">떼기</button>` : ''}</div></div>`).join('')
+            ${!t.doneAt && focusing.length ? `<div class="meta">🔥 ${focusing.map(escapeHtml).join(', ')} 집중 중</div>` : ''}
+            <div class="actions">${focusButton}${t.doneAt ? '' : `<button class="px-btn small" data-act="room-done" data-id="${t.id}">끝냈어요!</button>`}
+            ${t.createdBy === me ? `<button class="px-btn small ghost" data-act="room-delete" data-id="${t.id}">떼기</button>` : ''}</div></div>`;
+        }).join('')
         : '<div class="empty">아직 나무에 걸린 일이 없어요.</div>';
 
       body.innerHTML = head + `
@@ -749,6 +806,7 @@ export const roomsWindow: GameWindow = {
             ctx.toast(`🔔 ${name}님에게 응원의 종을 쳤어요!`);
             break;
           }
+          case 'tree-focus': ctx.toggleTreeFocus(el.dataset.id!); break;
           case 'room-done': await backend?.completeTask(el.dataset.id!); break;
           case 'room-delete': await backend?.deleteTask(el.dataset.id!); break;
         }
@@ -777,8 +835,11 @@ export const roomsWindow: GameWindow = {
     const redraw = (rs: RoomViewState) => keepInputs(body, () => render(rs));
     redraw(roomView.state);
     const off = roomView.subscribe(redraw);
+    // 내가 나무 할 일 집중을 켜고 끄면 버튼도 바꿔요.
+    let lastFocus = ctx.store.get().focus?.taskId;
+    const offStore = ctx.store.subscribe((st) => { if (st.focus?.taskId !== lastFocus) { lastFocus = st.focus?.taskId; redraw(roomView.state); } });
     const tick = window.setInterval(() => redraw(roomView.state), 60 * 1000);
-    return () => { off(); window.clearInterval(tick); };
+    return () => { off(); offStore(); window.clearInterval(tick); };
   },
 };
 
@@ -876,8 +937,11 @@ const HELP_SECTIONS: { id: string; title: string; html: string }[] = [
     html: `<ul>
       <li>방은 카카오로 로그인해야 쓸 수 있어요. 방 창(<kbd>G</kbd>)에서 <b>+ 새 방</b>을 만들고 <b>초대 코드</b>(6자리)를 친구에게 보내요.</li>
       <li>접속하면 언제나 <b>내 집</b>에서 시작해요. 방 창에서 <b>[이 방 마을로 가기]</b>를 누르면 친구들 집과 광장이 있는 마을로 가요.</li>
-      <li>마을에서는 친구 마당에 걸어가서 친구 주민을 구경할 수 있어요.</li>
-      <li>🌳 <b>수호나무</b>: 방 친구 누구나 같이 할 일을 걸고 끝낼 수 있어요.</li>
+      <li>마을에 와 있는 친구는 <b>캐릭터로 걸어 다니는 모습</b>이 보여요. 머리 위 🔥는 집중 중, 🌳🔥는 나무 할 일에 집중 중이에요.</li>
+      <li>친구 마당에 걸어가면 친구의 <b>주민과 반죽</b>을 구경할 수 있어요. 친구가 집중 중인 할 일의 반죽은 잠들어 있어요.</li>
+      <li>🌳 <b>수호나무</b>: 방 친구 누구나 같이 할 일을 걸고 끝낼 수 있어요. <b>방 마을에서</b> 나무를 누르면 그 일에 <b>🔥 집중하기</b>를 할 수 있어요.
+        집중한 시간은 내 오늘 집중 시간과 집중 습관에 그대로 들어가고, 내 집으로 돌아가면 집중이 끝나요.</li>
+      <li>마감이 있는 나무 할 일은 내 <b>캘린더</b>에도 🌳 나뭇잎 칸으로 보여요.</li>
       <li>🔥 <b>모닥불</b>: 같이 집중해요. 🔔 <b>응원의 종</b>: 친구를 골라 응원을 보내요.</li>
       <li>방 창에서 멤버마다 <b>오늘 집중한 시간</b>을 볼 수 있어요.</li>
       <li>마을에서 <b>내 집 앞에서 <kbd>E</kbd></b>를 누르면 내 집으로 돌아와요. 집에 있어도 종 알림과 친구 상태는 계속 받아요.</li>

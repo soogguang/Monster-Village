@@ -4,7 +4,7 @@
 import { pickResident, type CatalogEntry } from './rules/catalog';
 import { isAvatarId, normalizeAvatarId, type AvatarId } from './avatars';
 import { friendshipStage, residentKey, type FriendshipStage } from './rules/friendship';
-import { HABIT_IDS, achievedHabits, localDayKey, type FocusSession, type HabitId } from './rules/habits';
+import { HABIT_IDS, achievedHabits, localDayKey, type FocusSession, type HabitId, type TreeFocusInfo } from './rules/habits';
 import { addFocus, createTask, decideResident, extendDue, type CalendarStyle, type ResidentKind, type Task, type TaskColor } from './rules/task';
 
 export interface Resident {
@@ -27,6 +27,18 @@ export interface Resident {
 export interface Focus {
   taskId: string;
   startedAt: number;
+  /** 방 나무의 공동 할 일에 집중 중이면 그 정보. 이때 taskId는 `tree:공동 할 일 id`예요 */
+  tree?: TreeFocusInfo;
+}
+
+/** 나무 할 일 집중의 taskId (내 할 일 id와 겹치지 않게 앞에 붙여요) */
+export const treeFocusId = (roomTaskId: string) => `tree:${roomTaskId}`;
+/** 집중 중인 것의 이름: 내 할 일 제목, 나무 할 일이면 "🌳 제목" */
+export function focusTitle(state: Pick<GameState, 'focus' | 'tasks'>): string | null {
+  const f = state.focus;
+  if (!f) return null;
+  if (f.tree) return `🌳 ${f.tree.title}`;
+  return state.tasks.find((t) => t.id === f.taskId)?.title ?? null;
 }
 
 export interface GameState {
@@ -85,10 +97,23 @@ export class GameStore {
     this.state = normalizeState(storage.load());
   }
 
-  /** 다른 곳(클라우드 저장 등)에서 받은 데이터로 통째로 바꿔요. */
-  /** 다른 곳(클라우드)의 데이터로 바꿔요. 바뀐 시각(updatedAt)은 그 데이터의 것을 그대로 지켜요. */
-  replaceState(saved: Partial<GameState> | null): void {
-    this.set(normalizeState(saved), false);
+  /**
+   * 다른 곳(클라우드)의 데이터로 통째로 바꿔요. 바뀐 시각(updatedAt)은 그 데이터의 것을 그대로 지켜요.
+   * fromCloud면 화면만 다시 그리고 클라우드 저장은 부르지 않아요. (받은 걸 그대로 다시 올리면 두 기기가 서로 끝없이 주고받아요)
+   */
+  replaceState(saved: Partial<GameState> | null, opts: { fromCloud?: boolean } = {}): void {
+    this.set(normalizeState(saved), false, !opts.fromCloud);
+  }
+
+  /** 클라우드 동기화가 연결되면, 연결 신호를 확인하기 전에 최신 기록을 먼저 받아 와요. (다른 기기에서 집중 중인데 끊긴 걸로 착각하지 않게) */
+  private syncHook: (() => Promise<void>) | null = null;
+  setSyncHook(fn: (() => Promise<void>) | null): void {
+    this.syncHook = fn;
+  }
+  /** 최신 기록 받기. 연결이 없거나 3초 안에 끝나지 않으면 그냥 지금 데이터로 이어가요. */
+  async syncNow(): Promise<void> {
+    if (!this.syncHook) return;
+    await Promise.race([this.syncHook().catch(() => undefined), new Promise((r) => setTimeout(r, 3000))]);
   }
 
   setCatalog(catalog: CatalogEntry[]): void {
@@ -237,11 +262,20 @@ export class GameStore {
     return newUnlocks;
   }
 
+  /** 방 나무의 공동 할 일에 집중해요. (방 마을에 있을 때만 화면에서 시작해요) 집중 시간은 내 기록에 그대로 들어가요. */
+  startTreeFocus(roomTaskId: string, tree: TreeFocusInfo): HabitId[] {
+    const newUnlocks = this.state.focus ? this.stopFocus() : [];
+    this.set({ ...this.state, focus: { taskId: treeFocusId(roomTaskId), startedAt: this.now(), tree } });
+    return newUnlocks;
+  }
+
   /** 집중을 끝내고 기록을 남겨요. 이번에 새로 해금된 습관을 돌려줘요. endedAt을 주면 그 시각에 끝난 것으로 기록해요. */
   stopFocus(endedAt: number = this.now()): HabitId[] {
     const focus = this.state.focus;
     if (!focus) return [];
-    const session: FocusSession = { taskId: focus.taskId, startedAt: focus.startedAt, endedAt: Math.max(focus.startedAt, endedAt) };
+    const session: FocusSession = {
+      taskId: focus.taskId, startedAt: focus.startedAt, endedAt: Math.max(focus.startedAt, endedAt), ...(focus.tree ? { tree: focus.tree } : {}),
+    };
     const minutes = Math.floor((session.endedAt - session.startedAt) / MINUTE);
     const tasks = this.state.tasks.map((t) => (t.id === focus.taskId ? addFocus(t, minutes, session.startedAt) : t));
     const sessions = session.endedAt > session.startedAt ? [...this.state.sessions, session] : this.state.sessions;
@@ -322,15 +356,16 @@ export class GameStore {
     return { unlocks, newUnlocks };
   }
 
-  private set(next: GameState, touch = true): void {
+  private set(next: GameState, touch = true, notifySaves = true): void {
     this.state = touch ? { ...next, updatedAt: this.now() } : next;
-    this.storage.save(next);
-    this.emit();
+    // 바뀐 시각(updatedAt)까지 브라우저에 남겨요. (예전에는 바뀌기 전 시각이 저장돼서 어느 쪽이 최신인지 잘못 볼 수 있었어요)
+    this.storage.save(this.state);
+    this.emit(notifySaves);
   }
 
-  private emit(): void {
+  private emit(notifySaves = true): void {
     for (const fn of this.listeners) fn(this.state);
-    for (const fn of this.saveListeners) fn(this.state);
+    if (notifySaves) for (const fn of this.saveListeners) fn(this.state);
   }
 }
 
