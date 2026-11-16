@@ -85,10 +85,23 @@ export class GameStore {
     this.state = normalizeState(storage.load());
   }
 
-  /** 다른 곳(클라우드 저장 등)에서 받은 데이터로 통째로 바꿔요. */
-  /** 다른 곳(클라우드)의 데이터로 바꿔요. 바뀐 시각(updatedAt)은 그 데이터의 것을 그대로 지켜요. */
-  replaceState(saved: Partial<GameState> | null): void {
-    this.set(normalizeState(saved), false);
+  /**
+   * 다른 곳(클라우드)의 데이터로 통째로 바꿔요. 바뀐 시각(updatedAt)은 그 데이터의 것을 그대로 지켜요.
+   * fromCloud면 화면만 다시 그리고 클라우드 저장은 부르지 않아요. (받은 걸 그대로 다시 올리면 두 기기가 서로 끝없이 주고받아요)
+   */
+  replaceState(saved: Partial<GameState> | null, opts: { fromCloud?: boolean } = {}): void {
+    this.set(normalizeState(saved), false, !opts.fromCloud);
+  }
+
+  /** 클라우드 동기화가 연결되면, 연결 신호를 확인하기 전에 최신 기록을 먼저 받아 와요. (다른 기기에서 집중 중인데 끊긴 걸로 착각하지 않게) */
+  private syncHook: (() => Promise<void>) | null = null;
+  setSyncHook(fn: (() => Promise<void>) | null): void {
+    this.syncHook = fn;
+  }
+  /** 최신 기록 받기. 연결이 없거나 3초 안에 끝나지 않으면 그냥 지금 데이터로 이어가요. */
+  async syncNow(): Promise<void> {
+    if (!this.syncHook) return;
+    await Promise.race([this.syncHook().catch(() => undefined), new Promise((r) => setTimeout(r, 3000))]);
   }
 
   setCatalog(catalog: CatalogEntry[]): void {
@@ -322,15 +335,16 @@ export class GameStore {
     return { unlocks, newUnlocks };
   }
 
-  private set(next: GameState, touch = true): void {
+  private set(next: GameState, touch = true, notifySaves = true): void {
     this.state = touch ? { ...next, updatedAt: this.now() } : next;
-    this.storage.save(next);
-    this.emit();
+    // 바뀐 시각(updatedAt)까지 브라우저에 남겨요. (예전에는 바뀌기 전 시각이 저장돼서 어느 쪽이 최신인지 잘못 볼 수 있었어요)
+    this.storage.save(this.state);
+    this.emit(notifySaves);
   }
 
-  private emit(): void {
+  private emit(notifySaves = true): void {
     for (const fn of this.listeners) fn(this.state);
-    for (const fn of this.saveListeners) fn(this.state);
+    if (notifySaves) for (const fn of this.saveListeners) fn(this.state);
   }
 }
 

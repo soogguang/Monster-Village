@@ -204,7 +204,12 @@ export function mountHud(store: GameStore, characterDir: string): VillageActions
   };
   beat();
   window.setInterval(beat, 30 * 1000);
-  document.addEventListener('visibilitychange', beat);
+  // 탭으로 돌아오면 다른 기기에서 바뀐 기록을 먼저 받고(최대 3초) 연결 신호를 확인해요.
+  // (다른 기기에서 집중하고 있었다면 그쪽 연결 신호를 보고 판단해야 집중을 잘못 끝내지 않아요)
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') void store.syncNow().finally(beat);
+    else beat();
+  });
   return {
     interact,
     notify: toast,
