@@ -4,7 +4,7 @@
 import { pickResident, type CatalogEntry } from './rules/catalog';
 import { isAvatarId, normalizeAvatarId, type AvatarId } from './avatars';
 import { friendshipStage, residentKey, type FriendshipStage } from './rules/friendship';
-import { HABIT_IDS, achievedHabits, localDayKey, type FocusSession, type HabitId } from './rules/habits';
+import { HABIT_IDS, achievedHabits, localDayKey, type FocusSession, type HabitId, type TreeFocusInfo } from './rules/habits';
 import { addFocus, createTask, decideResident, extendDue, type CalendarStyle, type ResidentKind, type Task, type TaskColor } from './rules/task';
 
 export interface Resident {
@@ -27,6 +27,18 @@ export interface Resident {
 export interface Focus {
   taskId: string;
   startedAt: number;
+  /** 방 나무의 공동 할 일에 집중 중이면 그 정보. 이때 taskId는 `tree:공동 할 일 id`예요 */
+  tree?: TreeFocusInfo;
+}
+
+/** 나무 할 일 집중의 taskId (내 할 일 id와 겹치지 않게 앞에 붙여요) */
+export const treeFocusId = (roomTaskId: string) => `tree:${roomTaskId}`;
+/** 집중 중인 것의 이름: 내 할 일 제목, 나무 할 일이면 "🌳 제목" */
+export function focusTitle(state: Pick<GameState, 'focus' | 'tasks'>): string | null {
+  const f = state.focus;
+  if (!f) return null;
+  if (f.tree) return `🌳 ${f.tree.title}`;
+  return state.tasks.find((t) => t.id === f.taskId)?.title ?? null;
 }
 
 export interface GameState {
@@ -250,11 +262,20 @@ export class GameStore {
     return newUnlocks;
   }
 
+  /** 방 나무의 공동 할 일에 집중해요. (방 마을에 있을 때만 화면에서 시작해요) 집중 시간은 내 기록에 그대로 들어가요. */
+  startTreeFocus(roomTaskId: string, tree: TreeFocusInfo): HabitId[] {
+    const newUnlocks = this.state.focus ? this.stopFocus() : [];
+    this.set({ ...this.state, focus: { taskId: treeFocusId(roomTaskId), startedAt: this.now(), tree } });
+    return newUnlocks;
+  }
+
   /** 집중을 끝내고 기록을 남겨요. 이번에 새로 해금된 습관을 돌려줘요. endedAt을 주면 그 시각에 끝난 것으로 기록해요. */
   stopFocus(endedAt: number = this.now()): HabitId[] {
     const focus = this.state.focus;
     if (!focus) return [];
-    const session: FocusSession = { taskId: focus.taskId, startedAt: focus.startedAt, endedAt: Math.max(focus.startedAt, endedAt) };
+    const session: FocusSession = {
+      taskId: focus.taskId, startedAt: focus.startedAt, endedAt: Math.max(focus.startedAt, endedAt), ...(focus.tree ? { tree: focus.tree } : {}),
+    };
     const minutes = Math.floor((session.endedAt - session.startedAt) / MINUTE);
     const tasks = this.state.tasks.map((t) => (t.id === focus.taskId ? addFocus(t, minutes, session.startedAt) : t));
     const sessions = session.endedAt > session.startedAt ? [...this.state.sessions, session] : this.state.sessions;

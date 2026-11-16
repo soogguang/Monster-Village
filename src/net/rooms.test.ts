@@ -17,7 +17,9 @@ function stubBackend(rooms: Room[]): RoomBackend {
     completeTask: async () => {},
     deleteTask: async () => {},
     enter: async () => () => {},
-    setFocus: () => {},
+    loadTreeTasks: async () => [],
+    setPresence: () => {},
+    sendMove: () => {},
     refreshMe: () => {},
     ringBell: () => {},
   };
@@ -61,4 +63,13 @@ describe('내 집과 방 마을', () => {
     await view.leave();
     expect(view.state.inVillage).toBe(false);
   });
+
+  it('나무 할 일에 집중하던 중에 새로고침하면 그 방 마을로 바로 돌아가요', async () => {
+    const other: Room = { ...room, id: 'r2', name: '스터디' };
+    const view = new RoomView();
+    await view.connect(stubBackend([room, other]), 'r2');
+    expect(view.state.active?.id).toBe('r2');
+    expect(view.state.inVillage).toBe(true);
+  });
 });
+

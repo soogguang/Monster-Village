@@ -10,6 +10,15 @@ export interface FocusSession {
   taskId: string;
   startedAt: number;
   endedAt: number;
+  /** 방 나무(공동 할 일)에 집중한 기록이면 그 할 일 제목과 방 (내 할 일 목록에 없어서 따로 남겨요) */
+  tree?: TreeFocusInfo;
+}
+
+/** 나무 할 일 집중: 어느 방의 어떤 공동 할 일인지 */
+export interface TreeFocusInfo {
+  roomId: string;
+  roomName: string;
+  title: string;
 }
 
 export interface Completion {

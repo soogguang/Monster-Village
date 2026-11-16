@@ -29,15 +29,19 @@ void connectRooms(account);
 
 /** 로그인했으면 친구 방에 이어요. 개발 서버에서 ?demo-room 을 붙이면 가짜 친구로 화면을 확인할 수 있어요. */
 async function connectRooms(account: { client: SupabaseClient; me: { id: string; nickname: string } } | null): Promise<void> {
+  // 나무 할 일에 집중하던 중에 새로고침했으면 그 방 마을로 돌아가서 이어가요.
+  const resume = store.get().focus?.tree?.roomId ?? null;
   try {
-    if (account) await roomView.connect(new SupabaseRooms(account.client, account.me));
+    if (account) await roomView.connect(new SupabaseRooms(account.client, account.me), resume);
     else if (import.meta.env.DEV && new URLSearchParams(window.location.search).has('demo-room')) {
       const { FakeRooms } = await import('./net/fakeRooms');
-      await roomView.connect(new FakeRooms());
+      await roomView.connect(new FakeRooms(), resume);
     }
   } catch (err) {
     console.warn('[방] 방 정보를 불러오지 못했어요.', err);
   }
+  // 그 방 마을로 돌아가지 못했으면(방을 나갔거나 연결이 안 되면) 나무 할 일 집중은 끝내요.
+  if (store.get().focus?.tree && !roomView.state.inVillage) store.stopFocus();
 }
 
 /**

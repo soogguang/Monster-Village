@@ -5,9 +5,9 @@
 // 화면은 저장소(GameStore)와 방 상태(roomView)를 그대로 그리기만 해요.
 
 import Phaser from 'phaser';
-import { AVATARS, AVATAR_FRAME, AVATAR_ROWS, avatarRow, avatarTexture, avatarWalk, facingForMovement, type Facing } from '../avatars';
+import { AVATARS, AVATAR_FRAME, AVATAR_ROWS, avatarRow, avatarTexture, avatarWalk, facingForMovement, normalizeAvatarId, type AvatarId, type Facing } from '../avatars';
 import { FRIENDSHIP, RESIDENT_DISPLAY_SCALE, TILE_SIZE, pickPixelScale } from '../config';
-import { roomView, type RoomViewState } from '../net/rooms';
+import { roomView, type MoveState, type RoomViewState } from '../net/rooms';
 import { doughStage, isStuckGrumpy, type DoughStage, type Task } from '../rules/task';
 import type { GameState, GameStore, Resident } from '../store';
 import { buildTiles, createHomeLayout, createVillageLayout, withMinWidth, type Rect, type Spot, type VillageLayout, type YardPlan } from '../world/layout';
@@ -33,6 +33,12 @@ const DEPTH = { ground: -10_000_000, overlay: -9_999_999, flatDecor: -9_999_998,
 
 const STAGE_LABELS: Record<DoughStage, string> = { soft: '말랑', grumpy: '심술', monster: '몬스터' };
 
+/** 방 마을에서 내 위치를 친구들에게 보내는 간격: 걷는 중에는 0.2초마다, 서 있으면 15초마다 (새로 온 친구에게는 바로 한 번) */
+const MOVE_SEND_MS = 200;
+const IDLE_SEND_MS = 15_000;
+/** 친구 캐릭터가 이만큼(타일) 넘게 떨어진 곳으로 옮겨 가면 걸어가지 않고 바로 그 자리에 나타나요 */
+const FRIEND_SNAP_TILES = 8;
+
 /** 바닥 타일 묶음(타일셋)의 순서. 타일맵은 이 번호로 그려요 */
 const TERRAIN_KEYS = ['grass-01', 'grass-02', 'grass-03', 'grass-04', 'dirt', 'stone', 'fence-h', 'fence-v', 'fence-corner', ...MEADOW_TILES] as const;
 const TILE_INDEX = Object.fromEntries(TERRAIN_KEYS.map((k, i) => [k, i])) as Record<string, number>;
@@ -46,6 +52,16 @@ interface DoughView {
   sprite: Phaser.GameObjects.Image;
   label: Phaser.GameObjects.Text;
   zzz: Phaser.GameObjects.Text;
+}
+
+/** 방 마을에 와 있는 친구 캐릭터 */
+interface FriendAvatar {
+  sprite: Phaser.GameObjects.Sprite;
+  label: Phaser.GameObjects.Text;
+  avatarId: AvatarId;
+  target: { x: number; y: number };
+  facing: Facing;
+  moving: boolean;
 }
 
 type MoveKeys = Record<'up' | 'down' | 'left' | 'right' | 'w' | 'a' | 's' | 'd', Phaser.Input.Keyboard.Key>;
@@ -97,6 +113,14 @@ export class VillageScene extends Phaser.Scene {
   private yardSigns = new Map<string, Phaser.GameObjects.Text>();
   /** 친구 마당마다 지금 그려 둔 주민 그림 */
   private friendYards = new Map<string, { key: string; sprites: Phaser.GameObjects.Image[] }>();
+  /** 친구 마당마다 그 친구의 반죽 (아직 안 끝낸 할 일) */
+  private friendDoughs = new Map<string, Map<string, DoughView>>();
+  /** 방 마을에 와 있는 친구 캐릭터 */
+  private friendAvatars = new Map<string, FriendAvatar>();
+  /** 내 위치를 마지막으로 보낸 내용과 시각 */
+  private lastMoveSent: { key: string; at: number } = { key: '', at: 0 };
+  /** 마을에 와 있던 친구들 (새로 온 친구에게 내 위치를 바로 알려 주려고) */
+  private villageFriends = new Set<string>();
   // 광장 물건 (방 마을에서만 있어요)
   private campfire: Phaser.GameObjects.Sprite | null = null;
   private campfireLabel: Phaser.GameObjects.Text | null = null;
@@ -186,12 +210,14 @@ export class VillageScene extends Phaser.Scene {
       this.renderRoom(rs);
     });
     const unsubscribe = this.store.subscribe((s) => this.render(s));
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => { unsubscribeRoom(); unsubscribe(); this.hud.setNearby(null); });
+    const unsubscribeMoves = roomView.subscribeMoves((m) => this.onFriendMove(m));
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => { unsubscribeRoom(); unsubscribe(); unsubscribeMoves(); this.hud.setNearby(null); });
     this.time.addEvent({ delay: 1000, loop: true, callback: () => this.render(this.store.get()) });
   }
 
-  update(): void {
+  update(_time: number, delta: number): void {
     this.updateResidentMotions(this.time.now);
+    this.updateFriendAvatars(delta);
     const body = this.player.body as Phaser.Physics.Arcade.Body;
     // 입력창에 글자를 치거나 창이 열려 있으면 캐릭터가 움직이지 않아요.
     const active = document.activeElement;
@@ -209,6 +235,7 @@ export class VillageScene extends Phaser.Scene {
       || (dy < 0 && !body.blocked.up) || (dy > 0 && !body.blocked.down);
     this.updatePlayerAppearance(moving);
     this.player.setDepth(this.player.y);
+    this.sendMyMove(moving);
     const nearby = typing ? null : nearbyLandmark({ col: this.player.x / T, row: this.player.y / T }, this.landmarks);
     this.hud.setNearby(nearby?.id ?? null);
     if (pressed && nearby && !this.interactionKey.ctrlKey && !this.interactionKey.metaKey && !this.interactionKey.altKey) {
@@ -357,12 +384,16 @@ export class VillageScene extends Phaser.Scene {
     this.world.map.destroy();
     for (const t of this.world.things) t.destroy();
     this.blockers.clear(true, true);
-    for (const v of this.doughViews.values()) { v.sprite.destroy(); v.label.destroy(); v.zzz.destroy(); }
+    for (const v of this.doughViews.values()) this.destroyDough(v);
     this.doughViews.clear();
     for (const s of this.residentViews.values()) { this.tweens.killTweensOf(s); s.destroy(); }
     this.residentViews.clear();
     for (const { sprites } of this.friendYards.values()) for (const s of sprites) { this.tweens.killTweensOf(s); s.destroy(); }
     this.friendYards.clear();
+    for (const views of this.friendDoughs.values()) for (const v of views.values()) this.destroyDough(v);
+    this.friendDoughs.clear();
+    for (const f of this.friendAvatars.values()) { f.sprite.destroy(); f.label.destroy(); }
+    this.friendAvatars.clear();
     this.residentMotions.clear();
     for (const list of this.giftFlowers.values()) for (const f of list) { this.tweens.killTweensOf(f); f.destroy(); }
     this.giftFlowers.clear();
@@ -419,30 +450,8 @@ export class VillageScene extends Phaser.Scene {
   private render(state: GameState): void {
     if (!this.world) return;
     const now = Date.now();
-    const active = state.tasks.filter((t) => t.completedAt === undefined);
-
-    for (const [id, view] of this.doughViews) {
-      if (!active.some((t) => t.id === id)) {
-        view.sprite.destroy(); view.label.destroy(); view.zzz.destroy();
-        this.doughViews.delete(id);
-      }
-    }
-    active.forEach((task, i) => {
-      const columns = [0.32, 0.4, 0.65, 0.73];
-      const rows = Math.ceil(active.length / columns.length);
-      const { x, y } = this.yardSpot(this.myYard, columns[i % columns.length], 0.65 + (Math.floor(i / columns.length) / Math.max(1, rows - 1)) * 0.22);
-      const view = this.doughViews.get(task.id) ?? this.addDough(task, x, y);
-      view.sprite.setPosition(x, y).setDepth(y);
-      view.label.setPosition(x, y + 4);
-      view.zzz.setPosition(x + T * 0.6, y - T * 2);
-      const stage = doughStage(task, now);
-      const sleepy = state.focus?.taskId === task.id;
-      const awakeTexture = `dough-${stage}`;
-      const sleepTexture = `${awakeTexture}-sleep`;
-      view.sprite.setTexture(sleepy && this.textures.exists(sleepTexture) ? sleepTexture : awakeTexture);
-      view.zzz.setVisible(sleepy);
-      view.label.setText(`${shorten(task.title)}\n${sleepy ? '졸림' : stage === 'grumpy' && isStuckGrumpy(task, now) ? '굳은 심술' : STAGE_LABELS[stage]}`);
-    });
+    this.syncDoughs(this.doughViews, this.myYard, state.tasks, state.focus?.taskId, now);
+    this.renderFriendDoughs(roomView.state, now);
 
     // 마당에 나오기를 켠 주민만 그려요.
     const shown = state.residents.filter((r) => r.visible);
@@ -465,17 +474,60 @@ export class VillageScene extends Phaser.Scene {
     });
   }
 
+  /**
+   * 마당 하나의 반죽을 그려요. (아직 안 끝낸 할 일마다 하나, 내 마당과 친구 마당이 같은 방식)
+   * 집중 중인 할 일의 반죽은 눈을 감고 잠들어요.
+   */
+  private syncDoughs(views: Map<string, DoughView>, yard: YardPlan, tasks: Task[], focusTaskId: string | undefined, now: number): void {
+    const active = tasks.filter((t) => t.completedAt === undefined);
+    for (const [id, view] of views) {
+      if (!active.some((t) => t.id === id)) { this.destroyDough(view); views.delete(id); }
+    }
+    active.forEach((task, i) => {
+      const columns = [0.32, 0.4, 0.65, 0.73];
+      const rows = Math.ceil(active.length / columns.length);
+      const { x, y } = this.yardSpot(yard, columns[i % columns.length], 0.65 + (Math.floor(i / columns.length) / Math.max(1, rows - 1)) * 0.22);
+      let view = views.get(task.id);
+      if (!view) { view = this.addDough(task, x, y); views.set(task.id, view); }
+      view.sprite.setPosition(x, y).setDepth(y);
+      view.label.setPosition(x, y + 4);
+      view.zzz.setPosition(x + T * 0.6, y - T * 2);
+      const stage = doughStage(task, now);
+      const sleepy = focusTaskId === task.id;
+      const awakeTexture = `dough-${stage}`;
+      const sleepTexture = `${awakeTexture}-sleep`;
+      view.sprite.setTexture(sleepy && this.textures.exists(sleepTexture) ? sleepTexture : awakeTexture);
+      view.zzz.setVisible(sleepy);
+      view.label.setText(`${shorten(task.title)}\n${sleepy ? '졸림' : stage === 'grumpy' && isStuckGrumpy(task, now) ? '굳은 심술' : STAGE_LABELS[stage]}`);
+    });
+  }
+
   private addDough(task: Task, x: number, y: number): DoughView {
     // 큰 집 앞 테라스 아래, 가운데 길 양옆의 활동 공간에 놓아요.
     const sprite = this.add.image(x, y, 'dough-soft').setOrigin(0.5, 1).setDepth(y);
     this.tweens.add({ targets: sprite, scaleY: 0.92, scaleX: 1.05, duration: 650, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
-    const view = {
+    return {
       sprite,
       label: this.makeLabel(x, y + 4, task.title, '#2b2433').setOrigin(0.5, 0).setAlign('center'),
       zzz: this.makeLabel(x + T * 0.6, y - T * 2, 'z z', '#ffffff').setVisible(false),
     };
-    this.doughViews.set(task.id, view);
-    return view;
+  }
+
+  private destroyDough(view: DoughView): void {
+    this.tweens.killTweensOf(view.sprite);
+    view.sprite.destroy(); view.label.destroy(); view.zzz.destroy();
+  }
+
+  /** 친구 마당의 반죽: 친구가 저장한 할 일로 그려요. 친구가 집중 중인 할 일의 반죽은 잠들어 있어요. */
+  private renderFriendDoughs(rs: RoomViewState, now: number): void {
+    if (!this.world || !this.layout.hasPlaza) return;
+    for (const yard of this.layout.yards) {
+      if (yard === this.myYard) continue;
+      const save = rs.members.find((m) => m.userId === yard.userId)?.save;
+      let views = this.friendDoughs.get(yard.userId);
+      if (!views) { views = new Map(); this.friendDoughs.set(yard.userId, views); }
+      this.syncDoughs(views, yard, save?.tasks ?? [], save?.focus?.taskId, now);
+    }
   }
 
   private addResident(
@@ -690,6 +742,8 @@ export class VillageScene extends Phaser.Scene {
       this.friendYards.set(yard.userId, { key, sprites });
     }
 
+    this.renderFriendDoughs(rs, Date.now());
+
     if (!this.campfire || !this.campfireLabel || !this.treeLabel) return;
     const focusing = roomView.focusingCount();
     // 192×192 모닥불은 최대 1.4배. 좌석은 가장 커졌을 때도 바깥에 놓아요.
@@ -697,6 +751,94 @@ export class VillageScene extends Phaser.Scene {
     this.campfireLabel.setText(rs.active ? `모닥불 · 🔥 ${focusing}명 집중 중` : '모닥불');
     const open = rs.tasks.filter((t) => t.doneAt === null).length;
     this.treeLabel.setText(rs.active ? `수호나무 · 공동 할 일 ${open}개` : '수호나무');
+  }
+
+  // ---------------------------------------------------------------- 방 마을의 친구 캐릭터
+
+  /** 방 마을에서 내가 움직이면 친구들에게 위치를 보내요. 내 집에 있을 때는 보내지 않아요. */
+  private sendMyMove(moving: boolean): void {
+    const rs = roomView.state;
+    if (!rs.backend || !rs.inVillage || !this.layout.hasPlaza) { this.villageFriends.clear(); return; }
+    const me = rs.backend.me.id;
+    // 마을에 새로 온 친구가 있으면 내 위치를 바로 한 번 알려줘요.
+    const here = new Set(rs.online.filter((p) => p.inVillage && p.userId !== me).map((p) => p.userId));
+    const newcomer = [...here].some((id) => !this.villageFriends.has(id));
+    this.villageFriends = here;
+    if (!here.size) return;
+    const move = { x: Math.round(this.player.x), y: Math.round(this.player.y), facing: this.playerFacing, moving };
+    const key = JSON.stringify(move);
+    const now = this.time.now;
+    const since = now - this.lastMoveSent.at;
+    const changed = key !== this.lastMoveSent.key;
+    if (newcomer || (changed && since >= MOVE_SEND_MS) || since >= IDLE_SEND_MS) {
+      rs.backend.sendMove(move);
+      this.lastMoveSent = { key, at: now };
+    }
+  }
+
+  private onFriendMove(m: MoveState): void {
+    const f = this.friendAvatars.get(m.userId);
+    if (!f) return; // 다음 프레임에 roomView.moves의 마지막 위치로 만들어요
+    f.target = { x: m.x, y: m.y };
+    f.facing = m.facing;
+    f.moving = m.moving;
+  }
+
+  /**
+   * 방 마을에 와 있는 친구를 그려요. 받은 위치로 부드럽게 걸어가요.
+   * 머리 위에는 이름, 집중 중이면 🔥(나무 할 일이면 🌳🔥)를 띄워요.
+   */
+  private updateFriendAvatars(delta: number): void {
+    const rs = roomView.state;
+    const me = rs.backend?.me.id;
+    const showing = new Set<string>();
+    if (this.world && this.layout.hasPlaza && rs.inVillage) {
+      for (const p of rs.online) {
+        if (p.userId === me || !p.inVillage) continue;
+        const move = roomView.moves.get(p.userId);
+        if (!move) continue;
+        showing.add(p.userId);
+        const save = rs.members.find((m) => m.userId === p.userId)?.save;
+        const avatarId = normalizeAvatarId(p.avatarId ?? save?.avatarId);
+        let f = this.friendAvatars.get(p.userId);
+        if (!f || f.avatarId !== avatarId) {
+          if (f) { f.sprite.destroy(); f.label.destroy(); }
+          const texture = avatarTexture(avatarId);
+          const sprite = this.add.sprite(move.x, move.y, this.textures.exists(texture) ? texture : 'player', 0).setOrigin(0.5, 1);
+          const label = this.makeLabel(move.x, move.y, '', '#ffffff').setOrigin(0.5, 1).setBackgroundColor('#2b2433cc').setPadding(4, 1, 4, 1);
+          f = { sprite, label, avatarId, target: { x: move.x, y: move.y }, facing: move.facing, moving: move.moving };
+          this.friendAvatars.set(p.userId, f);
+        }
+        this.stepFriend(f, delta);
+        const badge = p.treeTaskId ? ' 🌳🔥' : p.focusingOn ? ' 🔥' : '';
+        f.label.setText(`${p.nickname}${badge}`).setPosition(f.sprite.x, f.sprite.y - AVATAR_FRAME.height - 2);
+      }
+    }
+    for (const [id, f] of this.friendAvatars) {
+      if (showing.has(id)) continue;
+      f.sprite.destroy(); f.label.destroy();
+      this.friendAvatars.delete(id);
+    }
+  }
+
+  private stepFriend(f: FriendAvatar, delta: number): void {
+    const { sprite, target } = f;
+    const dx = target.x - sprite.x;
+    const dy = target.y - sprite.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist > T * FRIEND_SNAP_TILES) sprite.setPosition(target.x, target.y);
+    else if (dist > 0.5) {
+      // 받은 위치가 조금씩 늦게 오니까, 멀어질수록 조금 더 빨리 따라가요.
+      const step = Math.min(dist, Math.max(PLAYER_SPEED, dist * 4) * (delta / 1000));
+      sprite.setPosition(sprite.x + (dx / dist) * step, sprite.y + (dy / dist) * step);
+    } else sprite.setPosition(target.x, target.y);
+    const walking = f.moving || dist > 2;
+    const texture = avatarTexture(f.avatarId);
+    const row = avatarRow(f.facing);
+    sprite.setFlipX(f.facing === 'left').setDepth(sprite.y);
+    if (!this.textures.exists(texture)) return;
+    if (walking) sprite.play(avatarWalk(f.avatarId, row), true);
+    else { sprite.anims.stop(); sprite.setTexture(texture, row * AVATAR_FRAME.columns); }
   }
 
   /** 마당 안의 비율 위치(0~1)를 월드 좌표로 바꿔요. 울타리 안쪽 기준이에요. */

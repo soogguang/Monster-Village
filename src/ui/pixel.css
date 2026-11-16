@@ -194,6 +194,11 @@ button, input, select { font: inherit; color: inherit; }
 .cal-item .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .cal-item .time { flex: none; color: var(--ink-soft); }
 .cal-item.done .t { text-decoration: line-through; color: var(--ink-soft); }
+/* 방 나무의 공동 할 일: 나뭇잎 초록 바탕 + 나무결 갈색 테두리 */
+.cal-item.cal-tree { background: #d6ebc2; border: 1px solid #8a5a33; border-left-width: 3px; padding-right: 2px; color: #2f4a1e; }
+.cal-item.cal-tree .leaf { flex: none; font-size: 9px; line-height: 12px; }
+.cal-item.cal-tree.done { background: #e1ded6; border-color: #857f73; }
+.slot.tree-task { background: #e4f1d6; border-left: 4px solid #8a5a33; }
 .color-dot { display: inline-block; flex: none; width: 8px; height: 8px; margin-right: 3px; background: var(--edge); border-radius: 50%; vertical-align: middle; }
 /* 색 고르기 */
 .color-pick { grid-column: 2 / -1; display: flex; flex-wrap: wrap; gap: 6px; }

@@ -2,7 +2,7 @@
 
 import { focusTotal, localDayRange, type HabitId } from '../rules/habits';
 import { RULES } from '../config';
-import type { CompleteResult, GameStore } from '../store';
+import { focusTitle, treeFocusId, type CompleteResult, type GameStore } from '../store';
 import { HABIT_TEXT, RESIDENT_TEXT, escapeHtml, formatClock, formatDuration, formatElapsed, heartsText } from './format';
 import { roomView } from '../net/rooms';
 import { LANDMARK_TEXT, type LandmarkId, type VillageActions } from '../world/interactions';
@@ -65,6 +65,19 @@ export function mountHud(store: GameStore, characterDir: string): VillageActions
       const unlocks = store.get().focus?.taskId === taskId ? store.stopFocus() : store.startFocus(taskId);
       if (unlocks.length) toast(unlockMessage(unlocks));
     },
+    toggleTreeFocus: (roomTaskId) => {
+      let unlocks: HabitId[];
+      if (store.get().focus?.taskId === treeFocusId(roomTaskId)) unlocks = store.stopFocus();
+      else {
+        const rs = roomView.state;
+        if (!rs.inVillage || !rs.active) throw new Error('나무 할 일은 그 방 마을에 가서 집중할 수 있어요.');
+        const task = rs.tasks.find((t) => t.id === roomTaskId && t.doneAt === null);
+        if (!task) throw new Error('이미 끝났거나 떼어 낸 나무 할 일이에요.');
+        unlocks = store.startTreeFocus(roomTaskId, { roomId: rs.active.id, roomName: rs.active.name, title: task.title });
+        toast(`🌳 "${task.title}"에 집중을 시작했어요. 방 친구들에게도 보여요.`);
+      }
+      if (unlocks.length) toast(unlockMessage(unlocks));
+    },
     openWindow: (id) => { const w = WINDOWS.find((candidate) => candidate.id === id); if (w) open(w); },
     closeWindow: () => close(),
   };
@@ -123,7 +136,13 @@ export function mountHud(store: GameStore, characterDir: string): VillageActions
   const interactionWindows: Record<Exclude<LandmarkId, 'home'>, GameWindow> = { tree: treeWindow, campfire: focusWindow, bell: bellWindow };
   const interact = (id: LandmarkId) => {
     // 방 마을에서 내 집을 누르면 내 집 화면으로 돌아가요.
-    if (id === 'home') { roomView.goHome(); toast('🏠 집으로 돌아왔어요. 방 마을은 방 창(G)에서 다시 갈 수 있어요.'); return; }
+    if (id === 'home') {
+      // 나무 할 일에 집중 중이었으면 "집중을 끝냈어요" 알림이 먼저 떠요. 그 알림을 덮지 않아요.
+      const treeFocus = Boolean(store.get().focus?.tree);
+      roomView.goHome();
+      if (!treeFocus) toast('🏠 집으로 돌아왔어요. 방 마을은 방 창(G)에서 다시 갈 수 있어요.');
+      return;
+    }
     open(interactionWindows[id]);
   };
   interactionButton.addEventListener('click', () => { if (nearby) interact(nearby); });
@@ -152,12 +171,13 @@ export function mountHud(store: GameStore, characterDir: string): VillageActions
     const state = store.get();
     const today = localDayRange(now);
     status.querySelector('.today-focus')!.textContent = `🔥 오늘 집중 ${formatDuration(focusTotal(state.sessions, today.from, today.to, state.focus, now))}`;
-    const focusTask = state.focus && state.tasks.find((t) => t.id === state.focus!.taskId);
+    const focusName = focusTitle(state);
+    const focusTask = state.focus && focusName !== null;
     const presence = status.querySelector('.presence')!;
     presence.classList.toggle('focusing', Boolean(focusTask));
     const place = roomView.state.inVillage && roomView.state.active ? `${roomView.state.active.name} 마을에 있어요` : '내 집에 있어요';
     presence.querySelector('.state')!.textContent = focusTask ? '🔥 집중 중' : place;
-    presence.querySelector('.task')!.textContent = focusTask ? focusTask.title : '';
+    presence.querySelector('.task')!.textContent = focusName ?? '';
     presence.querySelector('.timer')!.textContent = focusTask ? formatElapsed(now - state.focus!.startedAt) : '';
 
     // 고르는 중인 선택지가 사라지지 않도록, 할 일 목록이나 집중 상태가 바뀔 때만 다시 그려요.
@@ -177,19 +197,31 @@ export function mountHud(store: GameStore, characterDir: string): VillageActions
 
   // ----- 방: 친구가 나에게 종을 치면 알려주고, 내 집중 상태를 방 친구들에게 보여줘요 -----
   roomView.onBellForMe = (from) => toast(`🔔 ${from}님이 응원의 종을 쳤어요! 힘내요!`);
-  let sharedFocus: string | null | undefined;
-  const shareFocus = () => {
+  // 내 집중 상태, 방 마을에 있는지, 내 모습을 방 친구들에게 알려요. (바뀐 게 없으면 보내지 않아요)
+  const sharePresence = () => {
     const s = store.get();
-    const title = (s.focus && s.tasks.find((t) => t.id === s.focus!.taskId)?.title) ?? null;
-    if (title === sharedFocus && roomView.state.active) return;
-    sharedFocus = title;
-    roomView.state.backend?.setFocus(title);
+    const rs = roomView.state;
+    // 나무 할 일 집중은 그 방 친구들에게만 나무 할 일로 보여요.
+    const tree = s.focus?.tree && s.focus.tree.roomId === rs.active?.id ? s.focus.taskId.slice('tree:'.length) : null;
+    rs.backend?.setPresence({ focusingOn: focusTitle(s), treeTaskId: tree, inVillage: rs.inVillage, avatarId: s.avatarId });
   };
-  store.subscribe(shareFocus);
-  let lastRoomId: string | undefined;
+  store.subscribe(sharePresence);
+
+  // 나무 할 일 집중은 그 방 마을에서만 해요. 마을을 떠나거나(내 집으로, 다른 방으로, 방 나가기) 그 할 일이 끝나면 집중도 끝내요.
+  let wasInVillage = false;
   roomView.subscribe((rs) => {
-    // 방에 새로 들어가면 지금 집중 상태를 한 번 알려줘요.
-    if (rs.active?.id !== lastRoomId) { lastRoomId = rs.active?.id; sharedFocus = undefined; shareFocus(); }
+    const tree = store.get().focus?.tree;
+    if (tree) {
+      const taskId = store.get().focus!.taskId.slice('tree:'.length);
+      const left = (wasInVillage && !rs.inVillage) || (rs.active !== null && rs.active.id !== tree.roomId);
+      const closed = rs.tasksRoomId === tree.roomId && !rs.tasks.some((t) => t.id === taskId && t.doneAt === null);
+      if (left || closed) {
+        const unlocks = store.stopFocus();
+        toast(`🌳 ${left ? '방 마을을 떠나서' : '나무 할 일이 끝나서'} "${tree.title}" 집중을 끝냈어요.${unlocks.length ? `\n${unlockMessage(unlocks)}` : ''}`);
+      }
+    }
+    wasInVillage = rs.inVillage;
+    sharePresence();
   });
 
   // ----- 연결 신호: 창이 열려 있는 동안 30초마다 남겨요 -----
